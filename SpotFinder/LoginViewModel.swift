@@ -5,12 +5,14 @@ import FirebaseAuth
 class LoginViewModel: ObservableObject {
     @Published var email = ""
     @Published var password = ""
+    @Published var isLoggedIn = false
 
     func login(email: String, password: String) async {
         let auth = Auth.auth()
         do {
             try await auth.signIn(withEmail: email, password: password)
             print("Login successful!")
+            isLoggedIn = true
             if let user = auth.currentUser {
                 print("Logged in as: \(user.email ?? "unknown")")
             }
@@ -19,22 +21,25 @@ class LoginViewModel: ObservableObject {
         }
     }
 
-// old login function not needed anymore because firebase auth is used instead
-    func oldLogin(email: String, password: String) {
-
-        if email == "" || password == "" {
-            print("Email and password are required")
-            return
+    func signUp(email: String, password: String) async {
+        let auth = Auth.auth()
+        do {
+            try await auth.createUser(withEmail: email, password: password)
+            print("Sign up successful!")
+            isLoggedIn = true
+        } catch {
+            print("Error signing up: \(error)")
         }
-
-        if password.count < 8 {
-            print("Password must be at least 8 characters long")
-            return
-        }
-
-        if !email.contains("@") || !email.contains(".") || !email.contains(" ") {
-            print("Email must contain @ and a .")
-            return
+    }
+    
+    func logout() async {
+        let auth = Auth.auth()
+        do {
+            try auth.signOut()
+            print("Logout successful!")
+            isLoggedIn = false
+        } catch {
+            print("Error signing out: \(error)")
         }
     }
 }

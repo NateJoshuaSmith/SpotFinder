@@ -1,5 +1,5 @@
 //
-//  Login.swift
+//  SignUp.swift
 //  SpotFinder
 //
 //  Created by Nathan Smith on 11/20/25.
@@ -7,12 +7,22 @@
 
 import SwiftUI
 
-struct Login: View {
+struct SignUp: View {
     @State private var email = ""
     @State private var password = ""
-    @State private var isLoggingIn = false
+    @State private var confirmPassword = ""
+    @State private var isSigningUp = false
     @EnvironmentObject var viewModel: LoginViewModel
-
+    @Environment(\.dismiss) var dismiss
+    
+    private var passwordsMatch: Bool {
+        password == confirmPassword || confirmPassword.isEmpty
+    }
+    
+    private var isFormValid: Bool {
+        !email.isEmpty && !password.isEmpty && !confirmPassword.isEmpty && passwordsMatch
+    }
+    
     var body: some View {
         ZStack {
             // Background gradient
@@ -25,7 +35,7 @@ struct Login: View {
             
             ScrollView {
                 VStack(spacing: 32) {
-                    Spacer(minLength: 60)
+                    Spacer(minLength: 40)
                     
                     // App Logo/Icon
                     VStack(spacing: 16) {
@@ -42,16 +52,12 @@ struct Login: View {
                         Text("SpotFinder")
                             .font(.system(size: 36, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
-                        
-                        Text("Discover and share skate spots")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
                     }
                     .padding(.bottom, 20)
                     
-                    // Login Card
+                    // Sign Up Card
                     VStack(spacing: 24) {
-                        Text("Sign In")
+                        Text("Create Account")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
                             .padding(.top, 8)
@@ -75,31 +81,56 @@ struct Login: View {
                             Text("Password")
                                 .font(.headline)
                                 .foregroundColor(.primary)
-                            SecureField("Enter your password", text: $password)
+                            SecureField("Create a password", text: $password)
                                 .textFieldStyle(.plain)
                                 .padding(16)
                                 .background(Color(.systemGray6))
                                 .cornerRadius(12)
                         }
                         
-                        // Login Button
+                        // Confirm Password Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Confirm Password")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            SecureField("Confirm your password", text: $confirmPassword)
+                                .textFieldStyle(.plain)
+                                .padding(16)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                            
+                            // Password match indicator
+                            if !confirmPassword.isEmpty {
+                                HStack(spacing: 6) {
+                                    Image(systemName: passwordsMatch ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .foregroundColor(passwordsMatch ? .green : .red)
+                                        .font(.caption)
+                                    Text(passwordsMatch ? "Passwords match" : "Passwords do not match")
+                                        .font(.caption)
+                                        .foregroundColor(passwordsMatch ? .green : .red)
+                                }
+                                .padding(.top, 4)
+                            }
+                        }
+                        
+                        // Sign Up Button
                         Button(action: {
                             Task {
-                                isLoggingIn = true
-                                await viewModel.login(email: email, password: password)
-                                isLoggingIn = false
+                                isSigningUp = true
+                                await viewModel.signUp(email: email, password: password)
+                                isSigningUp = false
                             }
                         }) {
                             HStack {
                                 Spacer()
-                                if isLoggingIn {
+                                if isSigningUp {
                                     ProgressView()
                                         .tint(.white)
                                 } else {
-                                    Image(systemName: "arrow.right.circle.fill")
+                                    Image(systemName: "person.badge.plus.fill")
                                         .font(.headline)
                                 }
-                                Text(isLoggingIn ? "Signing in..." : "Sign In")
+                                Text(isSigningUp ? "Creating account..." : "Sign Up")
                                     .fontWeight(.semibold)
                                 Spacer()
                             }
@@ -115,15 +146,15 @@ struct Login: View {
                             .cornerRadius(16)
                             .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
-                        .disabled(email.isEmpty || password.isEmpty || isLoggingIn)
-                        .opacity(email.isEmpty || password.isEmpty ? 0.6 : 1.0)
+                        .disabled(!isFormValid || isSigningUp)
+                        .opacity(isFormValid ? 1.0 : 0.6)
                         
-                        // Sign Up Link
+                        // Sign In Link
                         HStack {
-                            Text("Don't have an account?")
+                            Text("Already have an account?")
                                 .foregroundColor(.secondary)
-                            NavigationLink("Sign Up") {
-                                SignUp()
+                            Button("Sign In") {
+                                dismiss()
                             }
                             .foregroundColor(.blue)
                             .fontWeight(.semibold)
@@ -143,10 +174,13 @@ struct Login: View {
                 }
             }
         }
+        .navigationTitle("Sign Up")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
 #Preview {
-    Login()
+    SignUp()
         .environmentObject(LoginViewModel())
 }
+

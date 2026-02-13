@@ -20,10 +20,18 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct SpotFinderApp: App {
     // register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var viewModel = LoginViewModel()
     
     var body: some Scene {
         WindowGroup {
-            Login()
+            NavigationView {
+                if viewModel.isLoggedIn {
+                    HomeView()
+                } else {
+                    Login()
+                }
+            }
+            .environmentObject(viewModel)
         }
     }
 }
