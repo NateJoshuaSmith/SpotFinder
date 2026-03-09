@@ -8,11 +8,12 @@
 import Foundation
 import Combine
 import FirebaseFirestore
-import FirebaseAuth
 
 class SpotService: ObservableObject {
     private let db = Firestore.firestore()
     private let collectionName = "skateSpots"
+    private let authService = AuthService()
+    private let userService = UserService()
     
     @Published var spots: [SkateSpot] = []
     
@@ -33,16 +34,19 @@ class SpotService: ObservableObject {
     
     // Add a new spot
     func addSpot(name: String, latitude: Double, longitude: Double, comment: String) async throws {
-        guard let userId = Auth.auth().currentUser?.uid else {
+        guard let userId = authService.currentUserId else {
             throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
+        
+        let username = await userService.getCurrentUsername()
         
         let spot = SkateSpot(
             name: name,
             latitude: latitude,
             longitude: longitude,
             comment: comment,
-            createdBy: userId
+            createdBy: userId,
+            createdByUsername: username
         )
         
         do {
@@ -57,7 +61,7 @@ class SpotService: ObservableObject {
     // Delete a spot
     func deleteSpot(_ spot: SkateSpot) async throws {
         guard let spotId = spot.id else { return }
-        guard let userId = Auth.auth().currentUser?.uid else {
+        guard let userId = authService.currentUserId else {
             throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         

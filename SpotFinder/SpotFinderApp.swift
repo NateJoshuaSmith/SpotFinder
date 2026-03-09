@@ -26,7 +26,11 @@ struct SpotFinderApp: App {
         WindowGroup {
             NavigationView {
                 if viewModel.isLoggedIn {
-                    HomeView()
+                    if viewModel.needsUsernameSetup {
+                        SetUsernameView()
+                    } else {
+                        HomeView()
+                    }
                 } else {
                     Login()
                 }

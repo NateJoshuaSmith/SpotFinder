@@ -10,8 +10,10 @@ import SwiftUI
 struct SignUp: View {
     @State private var email = ""
     @State private var password = ""
+    @State private var username = ""
     @State private var confirmPassword = ""
     @State private var isSigningUp = false
+    @State private var signUpError: String?
     @EnvironmentObject var viewModel: LoginViewModel
     @Environment(\.dismiss) var dismiss
     
@@ -20,7 +22,7 @@ struct SignUp: View {
     }
     
     private var isFormValid: Bool {
-        !email.isEmpty && !password.isEmpty && !confirmPassword.isEmpty && passwordsMatch
+        !email.isEmpty && !password.isEmpty && !username.isEmpty && !confirmPassword.isEmpty && passwordsMatch
     }
     
     var body: some View {
@@ -61,6 +63,19 @@ struct SignUp: View {
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
                             .padding(.top, 8)
+                        
+                        // Username Field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Username")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            TextField("Choose a username", text: $username)
+                                .textFieldStyle(.plain)
+                                .padding(16)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .autocapitalization(.none)
+                        }
                         
                         // Email Field
                         VStack(alignment: .leading, spacing: 8) {
@@ -117,7 +132,13 @@ struct SignUp: View {
                         Button(action: {
                             Task {
                                 isSigningUp = true
-                                await viewModel.signUp(email: email, password: password)
+                                signUpError = nil
+                                do {
+                                    try await viewModel.signUp(email: email, password: password, username: username)
+                                    dismiss()
+                                } catch {
+                                    signUpError = error.localizedDescription
+                                }
                                 isSigningUp = false
                             }
                         }) {
@@ -148,6 +169,13 @@ struct SignUp: View {
                         }
                         .disabled(!isFormValid || isSigningUp)
                         .opacity(isFormValid ? 1.0 : 0.6)
+                        
+                        if let error = signUpError {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .padding(.top, 4)
+                        }
                         
                         // Sign In Link
                         HStack {

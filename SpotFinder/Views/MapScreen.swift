@@ -21,7 +21,6 @@ struct MapScreen: View {
     @State private var dragOffset: CGSize = .zero
     @State private var mapViewSize: CGSize = .zero
     @State private var selectedSpot: SkateSpot? = nil
-    @State private var showSpotDetail = false
     @State private var hasCenteredOnUserLocation = false
     @State private var isLoadingSpots = true
     
@@ -124,7 +123,6 @@ struct MapScreen: View {
         TapGesture()
             .onEnded { _ in
                 selectedSpot = spot
-                showSpotDetail = true
             }
     }
     
@@ -190,7 +188,7 @@ struct MapScreen: View {
                         .scaleEffect(draggingSpot?.id == spot.id ? 1.2 : 1.0)
                         .offset(draggingSpot?.id == spot.id ? dragOffset : .zero)
                         .gesture(spotDragGesture(for: spot))
-                        .simultaneousGesture(spotTapGesture(for: spot))
+                        .highPriorityGesture(spotTapGesture(for: spot))
                 }
                 .annotationTitles(.visible)
             }
@@ -318,10 +316,8 @@ struct MapScreen: View {
                 longitude: selectedLongitude
             )
         }
-        .sheet(isPresented: $showSpotDetail) {
-            if let spot = selectedSpot {
-                SpotDetailView(spot: spot, spotService: spotService)
-            }
+        .sheet(item: $selectedSpot) { spot in
+            SpotDetailView(spot: spot, spotService: spotService)
         }
         .task {
             setupTask()
