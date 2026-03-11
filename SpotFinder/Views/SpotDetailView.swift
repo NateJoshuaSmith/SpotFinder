@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import PhotosUI
 
 struct SpotDetailView: View {
     let spot: SkateSpot
@@ -19,6 +20,10 @@ struct SpotDetailView: View {
     @State private var errorMessage: String?
     @State private var newCommentText = ""
     @State private var isPostingComment = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isUploadingPhoto = false
+    @State private var localImageURL: String?  // Shows newly added photo before parent refreshes
+    @State private var showPhotoPickerSheet = false
     
     // Check if current user owns this spot
     private var isOwner: Bool {
@@ -28,10 +33,126 @@ struct SpotDetailView: View {
         return spot.createdBy == currentUserId
     }
     
+    private var placeholderPhotoView: some View {
+        Rectangle()
+            .fill(Color(.systemGray5))
+            .frame(height: 200)
+            .overlay(
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    if isOwner {
+                        Text("Tap to add photo")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            )
+            .cornerRadius(16)
+    }
+    
+    /// URL to show for the spot photo: newly uploaded (local) or from spot
+    private var displayedImageURL: String? {
+        localImageURL ?? spot.imageURL
+    }
+    
+    private var photoPickerSheet: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Choose a photo for this spot")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    Label("Choose from library", systemImage: "photo.on.rectangle.angled")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.systemGray5))
+                        .cornerRadius(12)
+                }
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Add Photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        showPhotoPickerSheet = false
+                    }
+                }
+            }
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
                         VStack(spacing: 24) {
+                            // User-uploaded spot photo (or placeholder); owner can tap to add/change
+                            if let urlString = displayedImageURL, let url = URL(string: urlString) {
+                                ZStack(alignment: .bottomTrailing) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                        case .failure(_):
+                                            placeholderPhotoView
+                                        case .empty:
+                                            placeholderPhotoView
+                                                .overlay(ProgressView())
+                                        @unknown default:
+                                            placeholderPhotoView
+                                        }
+                                    }
+                                    .frame(height: 200)
+                                    .clipped()
+                                    .cornerRadius(16)
+                                    .overlay(isUploadingPhoto ? Color.black.opacity(0.3) : nil)
+                                    .overlay(isUploadingPhoto ? ProgressView().tint(.white) : nil)
+                                    if isOwner {
+                                        Button(action: { showPhotoPickerSheet = true }) {
+                                            Image(systemName: "camera.circle.fill")
+                                                .font(.title)
+                                                .foregroundStyle(.white)
+                                                .shadow(radius: 2)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(12)
+                                        .disabled(isUploadingPhoto)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            } else {
+                                Group {
+                                    if isOwner {
+                                        Button(action: { showPhotoPickerSheet = true }) {
+                                            placeholderPhotoView
+                                                .overlay(isUploadingPhoto ? ProgressView() : nil)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .contentShape(Rectangle())
+                                        .disabled(isUploadingPhoto)
+                                        Button(action: { showPhotoPickerSheet = true }) {
+                                            Label("Add photo", systemImage: "photo.badge.plus")
+                                                .font(.headline)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 12)
+                                                .background(Color(.systemGray5))
+                                                .cornerRadius(10)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(isUploadingPhoto)
+                                    } else {
+                                        placeholderPhotoView
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                            
                             // Spot Name Card
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(spot.name)
@@ -229,6 +350,15 @@ struct SpotDetailView: View {
                 if let spotId = spot.id {
                     commentService.listenToComments(spotId: spotId)
                 }
+                localImageURL = nil
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                guard isOwner, let item = newItem else { return }
+                showPhotoPickerSheet = false
+                Task { await uploadSelectedPhoto(item) }
+            }
+            .sheet(isPresented: $showPhotoPickerSheet) {
+                photoPickerSheet
             }
             .onDisappear {
                 commentService.stopListening()
@@ -261,6 +391,26 @@ struct SpotDetailView: View {
         } catch {
             errorMessage = "Failed to delete spot: \(error.localizedDescription)"
             isDeleting = false
+        }
+    }
+    
+    private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
+        guard let spotId = spot.id else { return }
+        isUploadingPhoto = true
+        defer { isUploadingPhoto = false }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
+                errorMessage = "Could not load photo."
+                return
+            }
+            let urlString = try await spotService.uploadSpotImage(data: data)
+            try await spotService.updateSpotImage(spot: spot, imageURL: urlString)
+            await MainActor.run {
+                localImageURL = urlString
+                selectedPhotoItem = nil
+            }
+        } catch {
+            errorMessage = "Failed to add photo: \(error.localizedDescription)"
         }
     }
 }

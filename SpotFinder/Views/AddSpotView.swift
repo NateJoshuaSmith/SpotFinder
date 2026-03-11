@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct AddSpotView: View {
     @Environment(\.dismiss) var dismiss
@@ -17,11 +18,55 @@ struct AddSpotView: View {
     @State private var spotName: String = ""
     @State private var spotComment: String = ""
     @State private var isSaving: Bool = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedImageData: Data?
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
+                    // Spot photo (optional)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Spot Photo")
+                            .font(.headline)
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            Group {
+                                if let data = selectedImageData, let uiImage = UIImage(data: data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 160)
+                                        .frame(maxWidth: .infinity)
+                                        .clipped()
+                                } else {
+                                    Rectangle()
+                                        .fill(Color(.systemGray5))
+                                        .frame(height: 160)
+                                        .overlay(
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "photo.badge.plus")
+                                                    .font(.system(size: 36))
+                                                    .foregroundColor(.secondary)
+                                                Text("Add a photo of the spot")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        )
+                                }
+                            }
+                            .cornerRadius(12)
+                        }
+                        .onChange(of: selectedPhotoItem) { _, newItem in
+                            Task {
+                                if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                    selectedImageData = data
+                                } else {
+                                    selectedImageData = nil
+                                }
+                            }
+                        }
+                    }
+                    
                     // Spot Name
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Spot Information")
@@ -105,17 +150,22 @@ struct AddSpotView: View {
         guard !spotName.isEmpty else { return }
         
         isSaving = true
+        defer { isSaving = false }
         do {
+            var imageURL: String?
+            if let data = selectedImageData, !data.isEmpty {
+                imageURL = try await spotService.uploadSpotImage(data: data)
+            }
             try await spotService.addSpot(
                 name: spotName,
                 latitude: latitude,
                 longitude: longitude,
-                comment: spotComment.isEmpty ? "No comment" : spotComment
+                comment: spotComment.isEmpty ? "No comment" : spotComment,
+                imageURL: imageURL
             )
             dismiss()
         } catch {
             print("Error saving spot: \(error)")
-            isSaving = false
         }
     }
 }

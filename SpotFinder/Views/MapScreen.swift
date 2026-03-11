@@ -13,6 +13,7 @@ struct MapScreen: View {
         )
     )
     @State private var showAddSpotSheet = false
+    @State private var showSkateShopsSheet = false
     @State private var selectedLatitude: Double = 37.7749
     @State private var selectedLongitude: Double = -122.4194
     @State private var mapRegion: MKCoordinateRegion?
@@ -240,6 +241,11 @@ struct MapScreen: View {
     // Toolbar content
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button(action: { showSkateShopsSheet = true }) {
+                Label("Skate shops", systemImage: "storefront.fill")
+            }
+        }
         ToolbarItem(placement: .navigationBarTrailing) {
             Button(action: {
                 if let region = mapRegion {
@@ -318,6 +324,13 @@ struct MapScreen: View {
         }
         .sheet(item: $selectedSpot) { spot in
             SpotDetailView(spot: spot, spotService: spotService)
+        }
+        .sheet(isPresented: $showSkateShopsSheet) {
+            NearbySkateShopsView(
+                latitude: selectedLatitude,
+                longitude: selectedLongitude,
+                radiusMeters: 10000
+            )
         }
         .task {
             setupTask()

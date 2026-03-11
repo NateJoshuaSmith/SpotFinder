@@ -11,19 +11,12 @@ import FirebaseAuth
 struct SettingsView: View {
     @EnvironmentObject var viewModel: LoginViewModel
     @State private var userEmail: String = ""
-    @State private var username: String = ""
-    @State private var isEditingUsername = false
-    @State private var editedUsername: String = ""
-    @State private var isSavingUsername = false
-    @State private var usernameError: String?
     @State private var showContactSupport = false
-    private let userService = UserService()
     
     var body: some View {
         List {
             Section {
                 HStack(spacing: 16) {
-                    // Profile icon
                     ZStack {
                         Circle()
                             .fill(
@@ -43,60 +36,14 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Account")
                             .font(.headline)
-                        if !username.isEmpty {
-                            Text("@\(username)")
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
-                        } else {
-                            Text("No username set")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
                         Text(userEmail)
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
                     
                     Spacer()
                 }
                 .padding(.vertical, 4)
-                
-                if isEditingUsername {
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextField("Username", text: $editedUsername)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                        if let error = usernameError {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                        HStack {
-                            Button("Cancel") {
-                                isEditingUsername = false
-                                editedUsername = username
-                                usernameError = nil
-                            }
-                            .foregroundColor(.secondary)
-                            Spacer()
-                            Button("Save") {
-                                Task { await saveUsername() }
-                            }
-                            .fontWeight(.semibold)
-                            .disabled(editedUsername.isEmpty || isSavingUsername)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                } else {
-                    Button(action: {
-                        editedUsername = username
-                        isEditingUsername = true
-                        usernameError = nil
-                    }) {
-                        Label("Edit Username", systemImage: "pencil")
-                            .foregroundColor(.blue)
-                    }
-                }
             } header: {
                 Text("Account")
                     .font(.headline)
@@ -160,35 +107,10 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            loadUserInfo()
-        }
-    }
-    
-    private func loadUserInfo() {
-        if let user = Auth.auth().currentUser {
-            userEmail = user.email ?? "No email"
-        }
-        Task {
-            if let uid = Auth.auth().currentUser?.uid,
-               let profile = try? await userService.getProfile(uid: uid) {
-                username = profile.username
+            if let user = Auth.auth().currentUser {
+                userEmail = user.email ?? "No email"
             }
         }
-    }
-    
-    private func saveUsername() async {
-        guard !editedUsername.isEmpty else { return }
-        isSavingUsername = true
-        usernameError = nil
-        do {
-            try await userService.updateUsername(editedUsername)
-            username = editedUsername
-            isEditingUsername = false
-            loadUserInfo()
-        } catch {
-            usernameError = error.localizedDescription
-        }
-        isSavingUsername = false
     }
     
     private var appVersion: String {

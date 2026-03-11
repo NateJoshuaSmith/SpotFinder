@@ -8,15 +8,11 @@
 import SwiftUI
 
 struct ContactSupportView: View {
-    private let authService = AuthService()
     // Change this to your support email address
     private let supportEmail = "support@yourapp.com"
     
     @State private var subject: String = ""
     @State private var message: String = ""
-    @State private var username: String = ""
-    
-    private let userService = UserService()
     
     var body: some View {
         Form {
@@ -27,7 +23,7 @@ struct ContactSupportView: View {
             } header: {
                 Text("Message")
             } footer: {
-                Text("Your message will open in your email app. App version and username are included to help us assist you.")
+                Text("Your message will open in your email app. App version is included to help us assist you.")
             }
             
             Section {
@@ -59,18 +55,6 @@ struct ContactSupportView: View {
         }
         .navigationTitle("Contact Support")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            loadUsername()
-        }
-    }
-    
-    private func loadUsername() {
-        Task {
-            if let uid = authService.currentUserId,
-               let profile = try? await userService.getProfile(uid: uid) {
-                username = profile.username
-            }
-        }
     }
     
     private var appVersion: String {
@@ -85,9 +69,6 @@ struct ContactSupportView: View {
         var lines: [String] = []
         lines.append("---")
         lines.append("SpotFinder \(appVersion)")
-        if !username.isEmpty {
-            lines.append("Username: @\(username)")
-        }
         lines.append("---")
         lines.append("")
         lines.append(message)

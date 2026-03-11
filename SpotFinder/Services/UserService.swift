@@ -28,9 +28,14 @@ class UserService: ObservableObject {
     }
     
     /// Get current user's username (convenience method). Uses server fetch to avoid stale cache.
+    /// Reads the "username" field directly so we don't depend on full UserProfile decoding.
     func getCurrentUsername() async -> String? {
         guard let uid = authService.currentUserId else { return nil }
-        return try? await getProfile(uid: uid, source: .server)?.username
+        let doc = try? await db.collection(collectionName).document(uid).getDocument(source: .default)
+        guard let data = doc?.data(),
+              let name = data["username"] as? String,
+              !name.isEmpty else { return nil }
+        return name
     }
     
     /// Update username for current user
@@ -38,17 +43,8 @@ class UserService: ObservableObject {
         guard let uid = authService.currentUserId else {
             throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
-        
-        // Use setData with merge to handle both existing profiles and new ones (e.g. legacy users)
-        let existingProfile = try? await getProfile(uid: uid)
-        let profileToSave: UserProfile
-        if var existing = existingProfile {
-            existing.username = newUsername
-            profileToSave = existing
-        } else {
-            profileToSave = UserProfile(uid: uid, username: newUsername, email: authService.currentUserEmail)
-        }
-        try db.collection(collectionName).document(uid).setData(from: profileToSave, merge: true)
+        // Update only the username field with merge so the document is created if missing
+        try await db.collection(collectionName).document(uid).setData(["username": newUsername], merge: true)
     }
     
     /// Check if user has a profile (for existing users migrating to username system)

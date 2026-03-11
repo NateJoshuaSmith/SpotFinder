@@ -8,9 +8,11 @@
 import Foundation
 import Combine
 import FirebaseFirestore
+import FirebaseStorage
 
 class SpotService: ObservableObject {
     private let db = Firestore.firestore()
+    private let storage = Storage.storage()
     private let collectionName = "skateSpots"
     private let authService = AuthService()
     private let userService = UserService()
@@ -32,8 +34,8 @@ class SpotService: ObservableObject {
         }
     }
     
-    // Add a new spot
-    func addSpot(name: String, latitude: Double, longitude: Double, comment: String) async throws {
+    // Add a new spot (imageURL optional; use uploadSpotImage first if user added a photo)
+    func addSpot(name: String, latitude: Double, longitude: Double, comment: String, imageURL: String? = nil) async throws {
         guard let userId = authService.currentUserId else {
             throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
@@ -46,7 +48,8 @@ class SpotService: ObservableObject {
             longitude: longitude,
             comment: comment,
             createdBy: userId,
-            createdByUsername: username
+            createdByUsername: username,
+            imageURL: imageURL
         )
         
         do {
@@ -94,6 +97,36 @@ class SpotService: ObservableObject {
             print("Error updating spot location: \(error)")
             throw error
         }
+    }
+    
+    /// Upload spot image to Firebase Storage; returns the download URL string. Path: spotImages/{userId}/{uuid}.jpg
+    func uploadSpotImage(data: Data) async throws -> String {
+        guard let userId = authService.currentUserId else {
+            throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        let path = "spotImages/\(userId)/\(UUID().uuidString).jpg"
+        let ref = storage.reference().child(path)
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        let url = try await ref.downloadURL()
+        return url.absoluteString
+    }
+    
+    /// Update a spot's image URL (owner only). Call after uploading with uploadSpotImage.
+    func updateSpotImage(spot: SkateSpot, imageURL: String) async throws {
+        guard let spotId = spot.id else { return }
+        guard let userId = authService.currentUserId else {
+            throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        guard spot.createdBy == userId else {
+            throw NSError(domain: "SpotService", code: 403, userInfo: [NSLocalizedDescriptionKey: "You can only update photos for spots you created"])
+        }
+        try await db.collection(collectionName).document(spotId).updateData([
+            "imageURL": imageURL,
+            "updatedAt": Timestamp(date: Date())
+        ])
+        await fetchSpots()
     }
     
     // Listen for real-time updates (optional - for real-time sync)
