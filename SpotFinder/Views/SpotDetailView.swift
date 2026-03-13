@@ -16,14 +16,19 @@ struct SpotDetailView: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var showDeleteAlert = false
+    @State private var showDeletePhotoAlert = false
     @State private var isDeleting = false
+    @State private var isDeletingPhoto = false
     @State private var errorMessage: String?
     @State private var newCommentText = ""
     @State private var isPostingComment = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isUploadingPhoto = false
     @State private var localImageURL: String?  // Shows newly added photo before parent refreshes
+    @State private var localImageURLsOverride: [String]? // Local source of truth after edits
     @State private var showPhotoPickerSheet = false
+    @State private var selectedImageIndex: Int = 0
+    @State private var pendingDeleteImageIndex: Int?
     
     // Check if current user owns this spot
     private var isOwner: Bool {
@@ -52,9 +57,45 @@ struct SpotDetailView: View {
             .cornerRadius(16)
     }
     
-    /// URL to show for the spot photo: newly uploaded (local) or from spot
-    private var displayedImageURL: String? {
-        localImageURL ?? spot.imageURL
+    @ViewBuilder
+    private func photoForURLString(_ urlString: String) -> some View {
+        if let url = URL(string: urlString) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure(_):
+                    placeholderPhotoView
+                case .empty:
+                    placeholderPhotoView
+                        .overlay(ProgressView())
+                @unknown default:
+                    placeholderPhotoView
+                }
+            }
+        } else {
+            placeholderPhotoView
+        }
+    }
+    
+    /// URLs to show for the spot photos: newly uploaded (local) plus stored on the spot
+    private var displayedImageURLs: [String] {
+        // Prefer locally overridden list if present (after adds/deletes)
+        var urls = localImageURLsOverride ?? (spot.imageURLs ?? [])
+        
+        // Fallback to legacy single imageURL
+        if urls.isEmpty, let single = spot.imageURL {
+            urls = [single]
+        }
+        
+        // Ensure local (newly uploaded) URL is included
+        if let local = localImageURL, !urls.contains(local) {
+            urls.append(local)
+        }
+        
+        return urls
     }
     
     private var photoPickerSheet: some View {
@@ -90,42 +131,52 @@ struct SpotDetailView: View {
         NavigationView {
             ScrollView {
                         VStack(spacing: 24) {
-                            // User-uploaded spot photo (or placeholder); owner can tap to add/change
-                            if let urlString = displayedImageURL, let url = URL(string: urlString) {
+                            // User-uploaded spot photos (or placeholder); owner can tap to add/change
+                            if !displayedImageURLs.isEmpty {
+                                let urls = displayedImageURLs
                                 ZStack(alignment: .bottomTrailing) {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                        case .failure(_):
-                                            placeholderPhotoView
-                                        case .empty:
-                                            placeholderPhotoView
-                                                .overlay(ProgressView())
-                                        @unknown default:
-                                            placeholderPhotoView
+                                    TabView(selection: $selectedImageIndex) {
+                                        ForEach(Array(urls.enumerated()), id: \.offset) { index, urlString in
+                                            photoForURLString(urlString)
+                                                .tag(index)
                                         }
                                     }
+                                    .tabViewStyle(.page)
                                     .frame(height: 200)
-                                    .clipped()
-                                    .cornerRadius(16)
-                                    .overlay(isUploadingPhoto ? Color.black.opacity(0.3) : nil)
-                                    .overlay(isUploadingPhoto ? ProgressView().tint(.white) : nil)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .padding(.horizontal)
+                                    
                                     if isOwner {
-                                        Button(action: { showPhotoPickerSheet = true }) {
-                                            Image(systemName: "camera.circle.fill")
-                                                .font(.title)
-                                                .foregroundStyle(.white)
-                                                .shadow(radius: 2)
+                                        HStack {
+                                            Button(action: { showPhotoPickerSheet = true }) {
+                                                Image(systemName: "camera.circle.fill")
+                                                    .font(.title)
+                                                    .foregroundStyle(.white)
+                                                    .shadow(radius: 2)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .padding(.trailing, 16)
+                                            .padding(.bottom, 16)
+                                            .disabled(isUploadingPhoto || isDeletingPhoto)
+                                            
+                                            if !displayedImageURLs.isEmpty {
+                                                Button(action: {
+                                                    pendingDeleteImageIndex = selectedImageIndex
+                                                    showDeletePhotoAlert = true
+                                                }) {
+                                                    Image(systemName: "trash.circle.fill")
+                                                        .font(.title2)
+                                                        .foregroundStyle(.red)
+                                                        .shadow(radius: 2)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .padding(.trailing, 24)
+                                                .padding(.bottom, 16)
+                                                .disabled(isUploadingPhoto || isDeletingPhoto)
+                                            }
                                         }
-                                        .buttonStyle(.plain)
-                                        .padding(12)
-                                        .disabled(isUploadingPhoto)
                                     }
                                 }
-                                .padding(.horizontal)
                             } else {
                                 Group {
                                     if isOwner {
@@ -334,6 +385,18 @@ struct SpotDetailView: View {
             } message: {
                 Text("Are you sure you want to delete \"\(spot.name)\"? This action cannot be undone.")
             }
+            .alert("Remove Photo?", isPresented: $showDeletePhotoAlert) {
+                Button("Cancel", role: .cancel) {
+                    pendingDeleteImageIndex = nil
+                }
+                Button("Delete Photo", role: .destructive) {
+                    Task {
+                        await deleteCurrentPhoto()
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to remove this photo from the spot?")
+            }
             .alert("Error", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -394,6 +457,39 @@ struct SpotDetailView: View {
         }
     }
     
+    private func deleteCurrentPhoto() async {
+        guard isOwner else { return }
+        let urls = displayedImageURLs
+        let index = pendingDeleteImageIndex ?? selectedImageIndex
+        guard index >= 0, index < urls.count else {
+            pendingDeleteImageIndex = nil
+            return
+        }
+        
+        let imageURLToDelete = urls[index]
+        
+        isDeletingPhoto = true
+        pendingDeleteImageIndex = nil
+        defer { isDeletingPhoto = false }
+        
+        do {
+            try await spotService.deleteSpotImage(spot: spot, imageURL: imageURLToDelete)
+            await MainActor.run {
+                var updated = urls
+                updated.removeAll { $0 == imageURLToDelete }
+                localImageURLsOverride = updated
+                if localImageURL == imageURLToDelete {
+                    localImageURL = nil
+                }
+                if selectedImageIndex >= updated.count {
+                    selectedImageIndex = max(0, updated.count - 1)
+                }
+            }
+        } catch {
+            errorMessage = "Failed to delete photo: \(error.localizedDescription)"
+        }
+    }
+    
     private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
         guard let spotId = spot.id else { return }
         isUploadingPhoto = true
@@ -406,7 +502,13 @@ struct SpotDetailView: View {
             let urlString = try await spotService.uploadSpotImage(data: data)
             try await spotService.updateSpotImage(spot: spot, imageURL: urlString)
             await MainActor.run {
-                localImageURL = urlString
+                // Build up a local source of truth so new photos appear immediately
+                var updated = displayedImageURLs
+                if !updated.contains(urlString) {
+                    updated.append(urlString)
+                }
+                localImageURLsOverride = updated
+                localImageURL = nil
                 selectedPhotoItem = nil
             }
         } catch {

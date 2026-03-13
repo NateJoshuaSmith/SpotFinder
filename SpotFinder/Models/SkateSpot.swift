@@ -18,9 +18,22 @@ struct SkateSpot: Identifiable, Codable, Equatable {
     var createdByUsername: String?  // Display name; nil for spots created before username feature
     var createdAt: Date
     var updatedAt: Date
-    var imageURL: String?  // User-uploaded spot photo (Firebase Storage URL)
+    var imageURL: String?      // Legacy single photo URL (kept for backward compatibility)
+    var imageURLs: [String]?   // Multiple user-uploaded spot photos (Firebase Storage URLs)
     
-    init(id: String? = nil, name: String, latitude: Double, longitude: Double, comment: String, createdBy: String, createdByUsername: String? = nil, createdAt: Date = Date(), updatedAt: Date = Date(), imageURL: String? = nil) {
+    init(
+        id: String? = nil,
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        comment: String,
+        createdBy: String,
+        createdByUsername: String? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        imageURL: String? = nil,
+        imageURLs: [String]? = nil
+    ) {
         self.id = id
         self.name = name
         self.latitude = latitude
@@ -31,6 +44,7 @@ struct SkateSpot: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.imageURL = imageURL
+        self.imageURLs = imageURLs
     }
 }
 

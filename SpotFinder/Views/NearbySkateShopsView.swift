@@ -100,8 +100,9 @@ private struct SkateShopRow: View {
     }
     
     private func openInMaps() {
-        let placemark = MKPlacemark(coordinate: place.coordinate)
-        let item = MKMapItem(placemark: placemark)
+        let location = CLLocation(latitude: place.coordinate.latitude,
+                                  longitude: place.coordinate.longitude)
+        let item = MKMapItem(location: location, address: nil)
         item.name = place.name
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
@@ -110,3 +111,4 @@ private struct SkateShopRow: View {
 #Preview {
     NearbySkateShopsView(latitude: 37.7749, longitude: -122.4194, radiusMeters: 10000)
 }
+

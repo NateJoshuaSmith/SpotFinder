@@ -41,6 +41,7 @@ class SpotService: ObservableObject {
         }
         
         let username = await userService.getCurrentUsername()
+        let imageURLs = imageURL.map { [$0] }  // seed array with first image if present
         
         let spot = SkateSpot(
             name: name,
@@ -49,7 +50,8 @@ class SpotService: ObservableObject {
             comment: comment,
             createdBy: userId,
             createdByUsername: username,
-            imageURL: imageURL
+            imageURL: imageURL,
+            imageURLs: imageURLs
         )
         
         do {
@@ -124,8 +126,43 @@ class SpotService: ObservableObject {
         }
         try await db.collection(collectionName).document(spotId).updateData([
             "imageURL": imageURL,
+            "imageURLs": FieldValue.arrayUnion([imageURL]),
             "updatedAt": Timestamp(date: Date())
         ])
+        await fetchSpots()
+    }
+    
+    /// Delete a specific spot image (owner only).
+    /// This removes the file from Firebase Storage and its URL from the spot's `imageURLs` array.
+    func deleteSpotImage(spot: SkateSpot, imageURL: String) async throws {
+        guard let spotId = spot.id else { return }
+        guard let userId = authService.currentUserId else {
+            throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        guard spot.createdBy == userId else {
+            throw NSError(domain: "SpotService", code: 403, userInfo: [NSLocalizedDescriptionKey: "You can only delete photos for spots you created"])
+        }
+        
+        do {
+            // Delete file from Storage using its download URL
+            let ref = storage.reference(forURL: imageURL)
+            try await ref.delete()
+        } catch {
+            // If storage deletion fails, log but still attempt to clean up Firestore reference
+            print("Error deleting spot image from storage: \(error)")
+        }
+        
+        var updates: [String: Any] = [
+            "imageURLs": FieldValue.arrayRemove([imageURL]),
+            "updatedAt": Timestamp(date: Date())
+        ]
+        
+        // If this URL is also stored as the legacy single `imageURL`, clear it
+        if spot.imageURL == imageURL {
+            updates["imageURL"] = FieldValue.delete()
+        }
+        
+        try await db.collection(collectionName).document(spotId).updateData(updates)
         await fetchSpots()
     }
     
