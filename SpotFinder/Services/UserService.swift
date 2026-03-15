@@ -213,4 +213,235 @@ class UserService: ObservableObject {
     func isFavorite(spotId: String) -> Bool {
         favoriteSpotIds.contains(spotId)
     }
+    
+    // MARK: - Friends
+    
+    /// Friend user IDs for the current user (loaded via loadFriends()).
+    @Published var friendIds: [String] = []
+    
+    /// UIDs the current user has sent a pending friend request to (loaded via loadPendingSent()).
+    @Published var pendingSentIds: [String] = []
+    
+    private let friendRequestsCollection = "friendRequests"
+    
+    /// Load friend IDs from Firestore into friendIds.
+    func loadFriends() async {
+        guard let uid = authService.currentUserId else {
+            await MainActor.run { friendIds = [] }
+            return
+        }
+        do {
+            let doc = try await db.collection(collectionName).document(uid).getDocument()
+            let ids = doc.data()?["friendIds"] as? [String] ?? []
+            await MainActor.run { friendIds = ids }
+        } catch {
+            print("Error loading friends: \(error)")
+            await MainActor.run { friendIds = [] }
+        }
+    }
+    
+    /// Add a user as a friend (by their UID).
+    func addFriend(friendUid: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        guard friendUid != uid else {
+            throw NSError(domain: "UserService", code: 400, userInfo: [NSLocalizedDescriptionKey: "You can't add yourself"])
+        }
+        try await db.collection(collectionName).document(uid).setData([
+            "friendIds": FieldValue.arrayUnion([friendUid])
+        ], merge: true)
+        await MainActor.run {
+            if !friendIds.contains(friendUid) {
+                friendIds.append(friendUid)
+            }
+        }
+    }
+    
+    /// Remove a user from friends.
+    func removeFriend(friendUid: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        try await db.collection(collectionName).document(uid).setData([
+            "friendIds": FieldValue.arrayRemove([friendUid])
+        ], merge: true)
+        await MainActor.run {
+            friendIds.removeAll { $0 == friendUid }
+        }
+    }
+    
+    /// Returns true if the given user ID is in the current user's friends list.
+    func isFriend(uid: String) -> Bool {
+        friendIds.contains(uid)
+    }
+    
+    /// Returns true if the current user has a pending sent request to this UID.
+    func hasPendingSentRequest(toUid: String) -> Bool {
+        pendingSentIds.contains(toUid)
+    }
+    
+    // MARK: - Friend requests (pending until accepted)
+    
+    /// Send a friend request to a user. They must accept before they appear in friendIds.
+    func createFriendRequest(toUid: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        guard toUid != uid else {
+            throw NSError(domain: "UserService", code: 400, userInfo: [NSLocalizedDescriptionKey: "You can't add yourself"])
+        }
+        let requestId = FriendRequest.requestId(from: uid, to: toUid)
+        let ref = db.collection(friendRequestsCollection).document(requestId)
+        let existing = try? await ref.getDocument()
+        if let doc = existing, doc.exists, let data = doc.data(),
+           let status = data["status"] as? String {
+            if status == FriendRequest.statusPending {
+                return
+            }
+            if status == FriendRequest.statusAccepted {
+                throw NSError(domain: "UserService", code: 409, userInfo: [NSLocalizedDescriptionKey: "Already friends"])
+            }
+        }
+        try await ref.setData([
+            "fromUid": uid,
+            "toUid": toUid,
+            "status": FriendRequest.statusPending,
+            "createdAt": Timestamp(date: Date())
+        ])
+        await MainActor.run {
+            if !pendingSentIds.contains(toUid) {
+                pendingSentIds.append(toUid)
+            }
+        }
+    }
+    
+    /// Cancel a pending friend request you sent.
+    func cancelFriendRequest(toUid: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let requestId = FriendRequest.requestId(from: uid, to: toUid)
+        try await db.collection(friendRequestsCollection).document(requestId).updateData([
+            "status": FriendRequest.statusDeclined
+        ])
+        await MainActor.run { pendingSentIds.removeAll { $0 == toUid } }
+    }
+    
+    /// Accept an incoming friend request. Adds them to your friendIds; they add you when they next load (so we only write our own document).
+    func acceptFriendRequest(fromUid: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let requestId = FriendRequest.requestId(from: fromUid, to: uid)
+        let ref = db.collection(friendRequestsCollection).document(requestId)
+        let doc = try await ref.getDocument()
+        guard doc.exists, let data = doc.data(),
+              (data["status"] as? String) == FriendRequest.statusPending,
+              (data["fromUid"] as? String) == fromUid,
+              (data["toUid"] as? String) == uid else {
+            throw NSError(domain: "UserService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Request not found or already handled"])
+        }
+        try await ref.updateData(["status": FriendRequest.statusAccepted])
+        try await db.collection(collectionName).document(uid).setData([
+            "friendIds": FieldValue.arrayUnion([fromUid])
+        ], merge: true)
+        await MainActor.run {
+            if !friendIds.contains(fromUid) { friendIds.append(fromUid) }
+        }
+    }
+    
+    /// Call after loadFriends: for requests you sent that were accepted, add the acceptor to your friendIds.
+    func processAcceptedRequests() async {
+        guard let uid = authService.currentUserId else { return }
+        do {
+            let snapshot = try await db.collection(friendRequestsCollection)
+                .whereField("fromUid", isEqualTo: uid)
+                .whereField("status", isEqualTo: FriendRequest.statusAccepted)
+                .getDocuments()
+            for doc in snapshot.documents {
+                let data = doc.data()
+                let fromUid = data["fromUid"] as? String ?? ""
+                let toUid = data["toUid"] as? String ?? ""
+                guard fromUid == uid else { continue }
+                let otherUid = toUid
+                if !friendIds.contains(otherUid) {
+                    try? await db.collection(collectionName).document(uid).setData([
+                        "friendIds": FieldValue.arrayUnion([otherUid])
+                    ], merge: true)
+                    await MainActor.run { friendIds.append(otherUid) }
+                }
+            }
+        } catch {
+            print("Error processing accepted requests: \(error)")
+        }
+    }
+    
+    /// Decline an incoming friend request.
+    func declineFriendRequest(fromUid: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let requestId = FriendRequest.requestId(from: fromUid, to: uid)
+        try await db.collection(friendRequestsCollection).document(requestId).updateData([
+            "status": FriendRequest.statusDeclined
+        ])
+    }
+    
+    /// Load UIDs the current user has sent a pending request to. Updates pendingSentIds.
+    func loadPendingSent() async {
+        guard let uid = authService.currentUserId else {
+            await MainActor.run { pendingSentIds = [] }
+            return
+        }
+        do {
+            let snapshot = try await db.collection(friendRequestsCollection)
+                .whereField("fromUid", isEqualTo: uid)
+                .whereField("status", isEqualTo: FriendRequest.statusPending)
+                .getDocuments()
+            let ids = snapshot.documents.compactMap { $0.data()["toUid"] as? String }
+            await MainActor.run { pendingSentIds = ids }
+        } catch {
+            print("Error loading pending sent: \(error)")
+            await MainActor.run { pendingSentIds = [] }
+        }
+    }
+    
+    /// Load incoming pending friend requests (to the current user).
+    func loadPendingReceived() async throws -> [FriendRequest] {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let snapshot = try await db.collection(friendRequestsCollection)
+            .whereField("toUid", isEqualTo: uid)
+            .whereField("status", isEqualTo: FriendRequest.statusPending)
+            .order(by: "createdAt", descending: true)
+            .getDocuments()
+        return snapshot.documents.compactMap { doc in
+            try? doc.data(as: FriendRequest.self)
+        }
+    }
+    
+    /// Search users by username prefix (case-insensitive). Excludes current user. Requires Firestore rule allowing read on users for authenticated users.
+    func searchUsers(byUsernamePrefix query: String) async throws -> [UserProfile] {
+        guard let currentUid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return [] }
+        let end = trimmed + "\u{f8ff}"
+        let snapshot = try await db.collection(collectionName)
+            .whereField("usernameLowercase", isGreaterThanOrEqualTo: trimmed)
+            .whereField("usernameLowercase", isLessThanOrEqualTo: end)
+            .limit(to: 20)
+            .getDocuments()
+        var profiles: [UserProfile] = []
+        for doc in snapshot.documents {
+            guard doc.documentID != currentUid else { continue }
+            if let profile = try? doc.data(as: UserProfile.self) {
+                profiles.append(profile)
+            }
+        }
+        return profiles
+    }
 }

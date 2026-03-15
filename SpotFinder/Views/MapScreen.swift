@@ -242,6 +242,11 @@ struct MapScreen: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
+            NavigationLink(destination: FriendsListView()) {
+                Label("Friends", systemImage: "person.2.fill")
+            }
+        }
+        ToolbarItem(placement: .navigationBarLeading) {
             Button(action: { showSkateShopsSheet = true }) {
                 Label("Skate shops", systemImage: "storefront.fill")
             }
