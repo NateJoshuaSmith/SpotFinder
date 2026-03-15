@@ -7,13 +7,16 @@
 
 import Foundation
 import FirebaseFirestore
+import FirebaseStorage
 import Combine
 
 class UserService: ObservableObject {
     private let authService = AuthService()
     private let db = Firestore.firestore()
+    private let storage = Storage.storage()
     private let collectionName = "users"
     private let spotsCollectionName = "skateSpots"
+    private let avatarPathPrefix = "avatars"
     
     /// Favorite spot IDs for the current user (loaded via loadFavorites())
     @Published var favoriteSpotIds: [String] = []
@@ -47,6 +50,32 @@ class UserService: ObservableObject {
               let name = data["username"] as? String,
               !name.isEmpty else { return nil }
         return name
+    }
+    
+    /// Get current user's avatar URL from Firestore.
+    func getCurrentAvatarURL() async -> String? {
+        guard let uid = authService.currentUserId else { return nil }
+        let doc = try? await db.collection(collectionName).document(uid).getDocument(source: .default)
+        guard let data = doc?.data(),
+              let url = data["avatarURL"] as? String,
+              !url.isEmpty else { return nil }
+        return url
+    }
+    
+    /// Upload avatar image to Storage and save URL to user document. Replaces any existing avatar.
+    func uploadAvatar(data: Data) async throws -> String {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        let path = "\(avatarPathPrefix)/\(uid).jpg"
+        let ref = storage.reference().child(path)
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        let url = try await ref.downloadURL()
+        let urlString = url.absoluteString
+        try await db.collection(collectionName).document(uid).setData(["avatarURL": urlString], merge: true)
+        return urlString
     }
     
     /// Validate username format (length and allowed characters). Returns nil if valid, or an error message.

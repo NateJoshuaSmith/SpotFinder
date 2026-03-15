@@ -7,12 +7,16 @@
 
 import SwiftUI
 import FirebaseAuth
+import PhotosUI
 
 struct SettingsView: View {
     @EnvironmentObject var viewModel: LoginViewModel
     @StateObject private var userService = UserService()
     @State private var userEmail: String = ""
     @State private var currentUsername: String?
+    @State private var avatarURL: String?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isUploadingAvatar = false
     @State private var showContactSupport = false
     @State private var showChangeUsername = false
     
@@ -20,20 +24,33 @@ struct SettingsView: View {
         List {
             Section {
                 HStack(spacing: 16) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.blue, .purple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 50, height: 50)
-                        
-                        Image(systemName: "person.fill")
-                            .foregroundColor(.white)
-                            .font(.title3)
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        Group {
+                            if let urlString = avatarURL, let url = URL(string: urlString) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                    default:
+                                        avatarPlaceholder
+                                    }
+                                }
+                                .frame(width: 56, height: 56)
+                                .clipShape(Circle())
+                                .overlay(isUploadingAvatar ? ProgressView().tint(.white) : nil)
+                            } else {
+                                avatarPlaceholder
+                                    .overlay(isUploadingAvatar ? ProgressView().tint(.white) : nil)
+                            }
+                        }
+                        .frame(width: 56, height: 56)
+                    }
+                    .disabled(isUploadingAvatar)
+                    .onChange(of: selectedPhotoItem) { _, newItem in
+                        guard let item = newItem else { return }
+                        Task { await uploadAvatar(from: item) }
                     }
                     
                     VStack(alignment: .leading, spacing: 4) {
@@ -62,6 +79,9 @@ struct SettingsView: View {
             } header: {
                 Text("Account")
                     .font(.headline)
+            } footer: {
+                Text("Tap your photo to change it.")
+                    .font(.caption)
             }
             
             Section {
@@ -127,6 +147,7 @@ struct SettingsView: View {
             }
             Task {
                 currentUsername = await userService.getCurrentUsername()
+                avatarURL = await userService.getCurrentAvatarURL()
             }
         }
         .onChange(of: showChangeUsername) { _, isShowing in
@@ -154,7 +175,37 @@ struct SettingsView: View {
         return "1.0"
     }
     
+    private var avatarPlaceholder: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.blue, .purple],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 56, height: 56)
+            .overlay(
+                Image(systemName: "person.fill")
+                    .foregroundColor(.white)
+                    .font(.title3)
+            )
+    }
+    
+    private func uploadAvatar(from item: PhotosPickerItem) async {
+        isUploadingAvatar = true
+        selectedPhotoItem = nil
+        defer { isUploadingAvatar = false }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else { return }
+            let urlString = try await userService.uploadAvatar(data: data)
+            await MainActor.run { avatarURL = urlString }
+        } catch {
+            print("Avatar upload failed: \(error)")
+        }
+    }
 }
+
 
 // MARK: - Change Username
 struct ChangeUsernameView: View {
