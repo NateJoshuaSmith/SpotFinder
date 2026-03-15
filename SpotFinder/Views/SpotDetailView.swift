@@ -14,9 +14,11 @@ struct SpotDetailView: View {
     @ObservedObject var spotService: SpotService
     @StateObject private var commentService = CommentService()
     @StateObject private var userService = UserService()
+    @StateObject private var reportService = ReportService()
     @Environment(\.dismiss) var dismiss
     
     @State private var showDeleteAlert = false
+    @State private var showReportSheet = false
     @State private var isTogglingFavorite = false
     @State private var showDeletePhotoAlert = false
     @State private var isDeleting = false
@@ -386,10 +388,23 @@ struct SpotDetailView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                    HStack(spacing: 16) {
+                        Button(action: { showReportSheet = true }) {
+                            Image(systemName: "flag")
+                                .foregroundColor(.secondary)
+                        }
+                        Button("Done") {
+                            dismiss()
+                        }
                     }
                 }
+            }
+            .sheet(isPresented: $showReportSheet) {
+                ReportSpotView(
+                    spot: spot,
+                    reportService: reportService,
+                    onDismiss: { showReportSheet = false }
+                )
             }
             .alert("Delete Spot?", isPresented: $showDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -614,6 +629,93 @@ private struct CommentRowView: View {
         .padding(12)
         .background(Color(.systemGray6))
         .cornerRadius(10)
+    }
+}
+
+// MARK: - Report Spot
+struct ReportSpotView: View {
+    let spot: SkateSpot
+    @ObservedObject var reportService: ReportService
+    var onDismiss: () -> Void
+    
+    @State private var selectedReasonId: String = ReportService.reportReasons[0].id
+    @State private var commentText: String = ""
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
+    @State private var showSuccess = false
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Reason", selection: $selectedReasonId) {
+                        ForEach(ReportService.reportReasons, id: \.id) { reason in
+                            Text(reason.label).tag(reason.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text("Why are you reporting this spot?")
+                }
+                Section {
+                    TextField("Additional details (optional)", text: $commentText, axis: .vertical)
+                        .lineLimit(3...6)
+                } header: {
+                    Text("Details")
+                }
+                if let error = errorMessage {
+                    Section {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .navigationTitle("Report Spot")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                        onDismiss()
+                    }
+                    .disabled(isSubmitting)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Submit") {
+                        Task { await submitReport() }
+                    }
+                    .disabled(isSubmitting)
+                }
+            }
+            .alert("Report submitted", isPresented: $showSuccess) {
+                Button("OK") {
+                    dismiss()
+                    onDismiss()
+                }
+            } message: {
+                Text("Thank you. We'll review this report.")
+            }
+        }
+    }
+    
+    private func submitReport() async {
+        guard let spotId = spot.id else { return }
+        isSubmitting = true
+        errorMessage = nil
+        defer { isSubmitting = false }
+        do {
+            try await reportService.submitReport(
+                spotId: spotId,
+                spotName: spot.name,
+                reason: selectedReasonId,
+                comment: commentText.isEmpty ? nil : commentText
+            )
+            showSuccess = true
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 
