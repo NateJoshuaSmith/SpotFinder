@@ -68,6 +68,28 @@ struct HomeView: View {
                     .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                 }
                 .padding(.horizontal, 24)
+                
+                NavigationLink(destination: FavoritesListView()) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "heart.fill")
+                            .font(.headline)
+                        Text("My Favorites")
+                            .font(.headline)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [.pink.opacity(0.8), .purple.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(16)
+                    .shadow(color: .pink.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .padding(.horizontal, 24)
                 .padding(.bottom, 40)
             }
         }

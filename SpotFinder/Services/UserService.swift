@@ -15,6 +15,9 @@ class UserService: ObservableObject {
     private let collectionName = "users"
     private let spotsCollectionName = "skateSpots"
     
+    /// Favorite spot IDs for the current user (loaded via loadFavorites())
+    @Published var favoriteSpotIds: [String] = []
+    
     /// Username rules: 3–20 characters, letters/numbers/underscore only
     static let usernameMinLength = 3
     static let usernameMaxLength = 20
@@ -129,5 +132,56 @@ class UserService: ObservableObject {
     func hasProfile(uid: String) async -> Bool {
         let document = try? await db.collection(collectionName).document(uid).getDocument()
         return document?.exists ?? false
+    }
+    
+    // MARK: - Favorites
+    
+    /// Load favorite spot IDs from Firestore into favoriteSpotIds.
+    func loadFavorites() async {
+        guard let uid = authService.currentUserId else {
+            await MainActor.run { favoriteSpotIds = [] }
+            return
+        }
+        do {
+            let doc = try await db.collection(collectionName).document(uid).getDocument()
+            let ids = doc.data()?["favoriteSpotIds"] as? [String] ?? []
+            await MainActor.run { favoriteSpotIds = ids }
+        } catch {
+            print("Error loading favorites: \(error)")
+            await MainActor.run { favoriteSpotIds = [] }
+        }
+    }
+    
+    /// Add a spot to favorites (current user only).
+    func addFavorite(spotId: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        try await db.collection(collectionName).document(uid).setData([
+            "favoriteSpotIds": FieldValue.arrayUnion([spotId])
+        ], merge: true)
+        await MainActor.run {
+            if !favoriteSpotIds.contains(spotId) {
+                favoriteSpotIds.append(spotId)
+            }
+        }
+    }
+    
+    /// Remove a spot from favorites (current user only).
+    func removeFavorite(spotId: String) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        try await db.collection(collectionName).document(uid).setData([
+            "favoriteSpotIds": FieldValue.arrayRemove([spotId])
+        ], merge: true)
+        await MainActor.run {
+            favoriteSpotIds.removeAll { $0 == spotId }
+        }
+    }
+    
+    /// Returns true if the given spot ID is in the current user's favorites.
+    func isFavorite(spotId: String) -> Bool {
+        favoriteSpotIds.contains(spotId)
     }
 }

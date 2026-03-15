@@ -247,14 +247,20 @@ struct MapScreen: View {
             }
         }
         ToolbarItem(placement: .navigationBarTrailing) {
-            Button(action: {
-                if let region = mapRegion {
-                    selectedLatitude = region.center.latitude
-                    selectedLongitude = region.center.longitude
+            HStack(spacing: 16) {
+                NavigationLink(destination: FavoritesListView()) {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.pink)
                 }
-                showAddSpotSheet = true
-            }) {
-                Image(systemName: "plus")
+                Button(action: {
+                    if let region = mapRegion {
+                        selectedLatitude = region.center.latitude
+                        selectedLongitude = region.center.longitude
+                    }
+                    showAddSpotSheet = true
+                }) {
+                    Image(systemName: "plus")
+                }
             }
         }
     }

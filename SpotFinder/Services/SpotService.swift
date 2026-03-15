@@ -19,6 +19,27 @@ class SpotService: ObservableObject {
     
     @Published var spots: [SkateSpot] = []
     
+    /// Fetch spots by document IDs (e.g. for favorites list). Firestore "in" is limited to 10, so we chunk.
+    func fetchSpots(ids: [String]) async -> [SkateSpot] {
+        let uniqueIds = Array(Set(ids)).filter { !$0.isEmpty }
+        guard !uniqueIds.isEmpty else { return [] }
+        let chunkSize = 10
+        var results: [SkateSpot] = []
+        for chunkStart in stride(from: 0, to: uniqueIds.count, by: chunkSize) {
+            let chunk = Array(uniqueIds[chunkStart..<min(chunkStart + chunkSize, uniqueIds.count)])
+            do {
+                let snapshot = try await db.collection(collectionName)
+                    .whereField(FieldPath.documentID(), in: chunk)
+                    .getDocuments()
+                let spots = snapshot.documents.compactMap { try? $0.data(as: SkateSpot.self) }
+                results.append(contentsOf: spots)
+            } catch {
+                print("Error fetching spots by ids: \(error)")
+            }
+        }
+        return results
+    }
+    
     // Fetch all spots
     func fetchSpots() async {
         do {

@@ -13,9 +13,11 @@ struct SpotDetailView: View {
     let spot: SkateSpot
     @ObservedObject var spotService: SpotService
     @StateObject private var commentService = CommentService()
+    @StateObject private var userService = UserService()
     @Environment(\.dismiss) var dismiss
     
     @State private var showDeleteAlert = false
+    @State private var isTogglingFavorite = false
     @State private var showDeletePhotoAlert = false
     @State private var isDeleting = false
     @State private var isDeletingPhoto = false
@@ -369,6 +371,20 @@ struct SpotDetailView: View {
             .navigationTitle("Spot Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if Auth.auth().currentUser != nil, let spotId = spot.id {
+                        Button(action: { Task { await toggleFavorite() } }) {
+                            if isTogglingFavorite {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: userService.isFavorite(spotId: spotId) ? "heart.fill" : "heart")
+                                    .foregroundColor(userService.isFavorite(spotId: spotId) ? .red : .secondary)
+                            }
+                        }
+                        .disabled(isTogglingFavorite)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
@@ -414,6 +430,7 @@ struct SpotDetailView: View {
                     commentService.listenToComments(spotId: spotId)
                 }
                 localImageURL = nil
+                Task { await userService.loadFavorites() }
             }
             .onChange(of: selectedPhotoItem) { _, newItem in
                 guard isOwner, let item = newItem else { return }
@@ -513,6 +530,21 @@ struct SpotDetailView: View {
             }
         } catch {
             errorMessage = "Failed to add photo: \(error.localizedDescription)"
+        }
+    }
+    
+    private func toggleFavorite() async {
+        guard let spotId = spot.id else { return }
+        isTogglingFavorite = true
+        defer { isTogglingFavorite = false }
+        do {
+            if userService.isFavorite(spotId: spotId) {
+                try await userService.removeFavorite(spotId: spotId)
+            } else {
+                try await userService.addFavorite(spotId: spotId)
+            }
+        } catch {
+            errorMessage = "Failed to update favorite: \(error.localizedDescription)"
         }
     }
 }
