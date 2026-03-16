@@ -29,15 +29,19 @@ struct Login: View {
                     
                     // App Logo/Icon
                     VStack(spacing: 16) {
-                        Image(systemName: "map.fill")
-                            .font(.system(size: 70))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue, .purple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                        ZStack {
+                            // Smaller circular outline with black stroke
+                            Circle()
+                                .stroke(Color.black, lineWidth: 3)
+                                .frame(width: 120, height: 120)
+                            
+                            // BrokenBoard logo inside the circle
+                            Image("BrokenBoard")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 112, height: 112)
+                                .clipShape(Circle())
+                        }
                         
                         Text("SpotFinder")
                             .font(.system(size: 36, weight: .bold, design: .rounded))

@@ -21,6 +21,11 @@ struct SkateSpot: Identifiable, Codable, Equatable {
     var imageURL: String?      // Legacy single photo URL (kept for backward compatibility)
     var imageURLs: [String]?   // Multiple user-uploaded spot photos (Firebase Storage URLs)
     
+    // Optional metadata for filtering and display
+    var tags: [String]?
+    var difficulty: String?
+    var status: String?
+    
     init(
         id: String? = nil,
         name: String,
@@ -32,7 +37,10 @@ struct SkateSpot: Identifiable, Codable, Equatable {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         imageURL: String? = nil,
-        imageURLs: [String]? = nil
+        imageURLs: [String]? = nil,
+        tags: [String]? = nil,
+        difficulty: String? = nil,
+        status: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -45,6 +53,9 @@ struct SkateSpot: Identifiable, Codable, Equatable {
         self.updatedAt = updatedAt
         self.imageURL = imageURL
         self.imageURLs = imageURLs
+        self.tags = tags
+        self.difficulty = difficulty
+        self.status = status
     }
 }
 

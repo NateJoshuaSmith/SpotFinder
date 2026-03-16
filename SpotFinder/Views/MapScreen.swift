@@ -25,6 +25,31 @@ struct MapScreen: View {
     @State private var hasCenteredOnUserLocation = false
     @State private var isLoadingSpots = true
     
+    // Filters
+    @State private var selectedTagFilter: String? = nil
+    @State private var selectedDifficultyFilter: String? = nil
+    @State private var selectedStatusFilter: String? = nil
+    
+    private let allTags = ["Street", "Park", "DIY", "Ledge", "Rail", "Hubba", "Bowl"]
+    private let allDifficulties = ["Beginner", "Intermediate", "Advanced"]
+    private let allStatuses = ["Good", "Sketchy", "Busted", "Under construction"]
+    
+    private var filteredSpots: [SkateSpot] {
+        spotService.spots.filter { spot in
+            if let tag = selectedTagFilter {
+                let tags = spot.tags ?? []
+                if !tags.contains(tag) { return false }
+            }
+            if let diff = selectedDifficultyFilter {
+                if spot.difficulty != diff { return false }
+            }
+            if let status = selectedStatusFilter {
+                if spot.status != status { return false }
+            }
+            return true
+        }
+    }
+    
     // Helper function to check if current user owns a spot
     private func isOwner(of spot: SkateSpot) -> Bool {
         guard let currentUserId = Auth.auth().currentUser?.uid else {
@@ -181,7 +206,7 @@ struct MapScreen: View {
     private func mapView(geometry: GeometryProxy, proxy: MapProxy) -> some View {
         Map(position: $cameraPosition) {
             UserAnnotation()
-            ForEach(spotService.spots) { spot in
+            ForEach(filteredSpots) { spot in
                 Annotation(spot.name, coordinate: CLLocationCoordinate2D(latitude: spot.latitude, longitude: spot.longitude)) {
                     Image(systemName: "mappin.circle.fill")
                         .foregroundColor(pinColor(for: spot))
@@ -235,6 +260,45 @@ struct MapScreen: View {
             }
             
             centerIndicator
+            
+            // Filter bar
+            VStack {
+                HStack(spacing: 8) {
+                    Menu {
+                        Button("All tags") { selectedTagFilter = nil }
+                        ForEach(allTags, id: \.self) { tag in
+                            Button(tag) { selectedTagFilter = tag }
+                        }
+                    } label: {
+                        Label(selectedTagFilter ?? "Tags", systemImage: "tag")
+                    }
+                    
+                    Menu {
+                        Button("Any level") { selectedDifficultyFilter = nil }
+                        ForEach(allDifficulties, id: \.self) { level in
+                            Button(level) { selectedDifficultyFilter = level }
+                        }
+                    } label: {
+                        Label(selectedDifficultyFilter ?? "Difficulty", systemImage: "speedometer")
+                    }
+                    
+                    Menu {
+                        Button("Any status") { selectedStatusFilter = nil }
+                        ForEach(allStatuses, id: \.self) { s in
+                            Button(s) { selectedStatusFilter = s }
+                        }
+                    } label: {
+                        Label(selectedStatusFilter ?? "Status", systemImage: "flag")
+                    }
+                }
+                .padding(8)
+                .background(.ultraThinMaterial)
+                .cornerRadius(12)
+                .padding(.top, 12)
+                .padding(.horizontal)
+                
+                Spacer()
+            }
         }
     }
     

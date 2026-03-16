@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct HomeView: View {
+    @EnvironmentObject var viewModel: LoginViewModel
+    @State private var showSettings: Bool = false
+    
     var body: some View {
         ZStack {
             // Background gradient
@@ -23,15 +26,20 @@ struct HomeView: View {
                 
                 // App Icon/Logo area
                 VStack(spacing: 16) {
-                    Image(systemName: "map.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.blue, .purple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    ZStack {
+                        // Circular outline (2× bigger) with black stroke
+                        Circle()
+                            .stroke(Color.black, lineWidth: 4)
+                            .frame(width: 192, height: 192)
+                        
+                        // Your logo image inside the circle, zoomed out a bit to avoid clipping
+                        Image("BrokenBoard")
+                            .resizable()
+                            .scaledToFit()
+                            // Slightly smaller than the outer circle to account for the stroke
+                            .frame(width: 176, height: 176)
+                            .clipShape(Circle())
+                    }
                     
                     Text("Welcome to SpotFinder")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -102,18 +110,94 @@ struct HomeView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: SettingsView()) {
-                    Image(systemName: "gearshape.fill")
-                        .foregroundColor(.blue)
+                Menu {
+                    // Settings
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    
+                    // Logout
+                    Button(role: .destructive) {
+                        Task {
+                            await viewModel.logout()
+                        }
+                    } label: {
+                        Label("Logout", systemImage: "arrow.right.square.fill")
+                    }
+                } label: {
+                    avatarButtonContent
                 }
             }
         }
+        // Hidden NavigationLink driven by state so tapping menu item actually navigates
+        .background(
+            NavigationLink(
+                destination: SettingsView(),
+                isActive: $showSettings,
+                label: { EmptyView() }
+            )
+            .hidden()
+        )
+    }
+}
+
+private extension HomeView {
+    var avatarButtonContent: some View {
+        Group {
+            if let urlString = viewModel.avatarURL,
+               let url = URL(string: urlString) {
+                ZStack {
+                    avatarPlaceholder
+                    AsyncImage(
+                        url: url,
+                        transaction: Transaction(animation: .easeInOut)
+                    ) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .transition(.opacity)
+                        case .empty:
+                            Color.clear
+                        case .failure:
+                            avatarPlaceholder
+                        @unknown default:
+                            avatarPlaceholder
+                        }
+                    }
+                }
+            } else {
+                avatarPlaceholder
+            }
+        }
+        .frame(width: 28, height: 28)
+        .clipShape(Circle())
+    }
+    
+    var avatarPlaceholder: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.blue, .purple],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                Image(systemName: "person.fill")
+                    .foregroundColor(.white)
+                    .font(.caption)
+            )
     }
 }
 
 #Preview {
     NavigationView {
         HomeView()
+            .environmentObject(LoginViewModel())
     }
 }
 

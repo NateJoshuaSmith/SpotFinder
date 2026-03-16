@@ -27,14 +27,26 @@ struct SettingsView: View {
                     PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                         Group {
                             if let urlString = avatarURL, let url = URL(string: urlString) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                    default:
-                                        avatarPlaceholder
+                                ZStack {
+                                    // Always show placeholder underneath to avoid a blank flash
+                                    avatarPlaceholder
+                                    AsyncImage(
+                                        url: url,
+                                        transaction: Transaction(animation: .easeInOut)
+                                    ) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                                .transition(.opacity)
+                                        case .empty:
+                                            Color.clear   // placeholder already behind
+                                        case .failure:
+                                            avatarPlaceholder
+                                        @unknown default:
+                                            avatarPlaceholder
+                                        }
                                     }
                                 }
                                 .frame(width: 56, height: 56)
@@ -115,24 +127,6 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
             }
-            
-            Section {
-                Button(action: {
-                    Task {
-                        await viewModel.logout()
-                    }
-                }) {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "arrow.right.square.fill")
-                        Text("Logout")
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                    .foregroundColor(.red)
-                    .padding(.vertical, 4)
-                }
-            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -145,9 +139,16 @@ struct SettingsView: View {
             if let user = Auth.auth().currentUser {
                 userEmail = user.email ?? "No email"
             }
+            // Use cached avatar URL immediately so we don't wait on Firestore
+            avatarURL = viewModel.avatarURL
             Task {
                 currentUsername = await userService.getCurrentUsername()
-                avatarURL = await userService.getCurrentAvatarURL()
+                // Refresh avatar URL in the background and keep cache in sync
+                let freshURL = await userService.getCurrentAvatarURL()
+                await MainActor.run {
+                    avatarURL = freshURL
+                    viewModel.avatarURL = freshURL
+                }
             }
         }
         .onChange(of: showChangeUsername) { _, isShowing in
@@ -199,7 +200,10 @@ struct SettingsView: View {
         do {
             guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else { return }
             let urlString = try await userService.uploadAvatar(data: data)
-            await MainActor.run { avatarURL = urlString }
+            await MainActor.run {
+                avatarURL = urlString
+                viewModel.avatarURL = urlString
+            }
         } catch {
             print("Avatar upload failed: \(error)")
         }

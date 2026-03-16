@@ -213,6 +213,42 @@ struct SpotDetailView: View {
                                 Text(spot.name)
                                     .font(.system(size: 32, weight: .bold, design: .rounded))
                                     .foregroundColor(.primary)
+                                
+                                // Difficulty / status badges
+                                HStack(spacing: 8) {
+                                    if let difficulty = spot.difficulty {
+                                        Text(difficulty)
+                                            .font(.caption)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.blue.opacity(0.12))
+                                            .foregroundColor(.blue)
+                                            .clipShape(Capsule())
+                                    }
+                                    if let status = spot.status {
+                                        Text(status)
+                                            .font(.caption)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.orange.opacity(0.12))
+                                            .foregroundColor(.orange)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                
+                                // Tags chips
+                                if let tags = spot.tags, !tags.isEmpty {
+                                    HStack(spacing: 6) {
+                                        ForEach(tags.prefix(4), id: \.self) { tag in
+                                            Text(tag)
+                                                .font(.caption2)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 3)
+                                                .background(Color(.systemGray6))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(20)

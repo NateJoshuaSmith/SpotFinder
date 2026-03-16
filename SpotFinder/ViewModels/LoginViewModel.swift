@@ -6,6 +6,7 @@ class LoginViewModel: ObservableObject {
     @Published var password = ""
     @Published var isLoggedIn = false
     @Published var needsUsernameSetup = false  // For existing users without a profile
+    @Published var avatarURL: String?          // Cached avatar URL for current user
     
     private let authService = AuthService()
     private let userService = UserService()
@@ -23,6 +24,11 @@ class LoginViewModel: ObservableObject {
             if let email = authService.currentUserEmail {
                 print("Logged in as: \(email)")
             }
+            // Prefetch avatar URL after login
+            Task {
+                let url = await userService.getCurrentAvatarURL()
+                await MainActor.run { self.avatarURL = url }
+            }
         } catch {
             print("Error signing in: \(error)")
         }
@@ -36,6 +42,11 @@ class LoginViewModel: ObservableObject {
             }
             isLoggedIn = true
             print("Sign up successful!")
+            // Prefetch avatar URL after sign up (will likely be nil initially)
+            Task {
+                let url = await userService.getCurrentAvatarURL()
+                await MainActor.run { self.avatarURL = url }
+            }
         } catch {
             print("Error signing up: \(error)")
             throw error
@@ -53,6 +64,7 @@ class LoginViewModel: ObservableObject {
             try authService.signOut()
             print("Logout successful!")
             isLoggedIn = false
+            avatarURL = nil
         } catch {
             print("Error signing out: \(error)")
         }

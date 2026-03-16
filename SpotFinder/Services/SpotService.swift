@@ -56,7 +56,16 @@ class SpotService: ObservableObject {
     }
     
     // Add a new spot (imageURL optional; use uploadSpotImage first if user added a photo)
-    func addSpot(name: String, latitude: Double, longitude: Double, comment: String, imageURL: String? = nil) async throws {
+    func addSpot(
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        comment: String,
+        imageURL: String? = nil,
+        tags: [String]? = nil,
+        difficulty: String? = nil,
+        status: String? = nil
+    ) async throws {
         guard let userId = authService.currentUserId else {
             throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
@@ -72,7 +81,10 @@ class SpotService: ObservableObject {
             createdBy: userId,
             createdByUsername: username,
             imageURL: imageURL,
-            imageURLs: imageURLs
+            imageURLs: imageURLs,
+            tags: tags,
+            difficulty: difficulty,
+            status: status
         )
         
         do {

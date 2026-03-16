@@ -21,6 +21,15 @@ struct AddSpotView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImageData: Data?
     
+    // Tag / difficulty / status options
+    private let allTags = ["Street", "Park", "DIY", "Ledge", "Rail", "Hubba", "Bowl"]
+    private let allDifficulties = ["Beginner", "Intermediate", "Advanced"]
+    private let allStatuses = ["Good", "Sketchy", "Busted", "Under construction"]
+    
+    @State private var selectedTags: Set<String> = []
+    @State private var selectedDifficulty: String = "Beginner"
+    @State private var selectedStatus: String = "Good"
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -88,6 +97,40 @@ struct AddSpotView: View {
                             .padding(12)
                             .background(Color(.systemGray6))
                             .cornerRadius(10)
+                    }
+                    
+                    // Tags
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tags")
+                            .font(.headline)
+                        WrapTagsView(
+                            allTags: allTags,
+                            selectedTags: $selectedTags
+                        )
+                    }
+                    
+                    // Difficulty
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Difficulty")
+                            .font(.headline)
+                        Picker("Difficulty", selection: $selectedDifficulty) {
+                            ForEach(allDifficulties, id: \.self) { level in
+                                Text(level).tag(level)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    
+                    // Skateable status
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Skateable status")
+                            .font(.headline)
+                        Picker("Status", selection: $selectedStatus) {
+                            ForEach(allStatuses, id: \.self) { s in
+                                Text(s).tag(s)
+                            }
+                        }
+                        .pickerStyle(.segmented)
                     }
                     
                     // Save Button
@@ -161,7 +204,10 @@ struct AddSpotView: View {
                 latitude: latitude,
                 longitude: longitude,
                 comment: spotComment.isEmpty ? "No comment" : spotComment,
-                imageURL: imageURL
+                imageURL: imageURL,
+                tags: selectedTags.isEmpty ? nil : Array(selectedTags),
+                difficulty: selectedDifficulty,
+                status: selectedStatus
             )
             dismiss()
         } catch {
@@ -178,3 +224,53 @@ struct AddSpotView: View {
     )
 }
 
+// Simple wrapping layout for tag chips
+private struct WrapTagsView: View {
+    let allTags: [String]
+    @Binding var selectedTags: Set<String>
+    
+    // Precompute rows of tags (plain Swift, no ViewBuilder)
+    private var rows: [[String]] {
+        var currentRow: [String] = []
+        var result: [[String]] = []
+        
+        // Very simple wrapping: break rows every 3 items
+        for tag in allTags {
+            currentRow.append(tag)
+            if currentRow.count == 3 {
+                result.append(currentRow)
+                currentRow = []
+            }
+        }
+        if !currentRow.isEmpty {
+            result.append(currentRow)
+        }
+        return result
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(rows, id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(row, id: \.self) { tag in
+                        let isOn = selectedTags.contains(tag)
+                        Text(tag)
+                            .font(.subheadline)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(isOn ? Color.blue.opacity(0.2) : Color(.systemGray6))
+                            .foregroundColor(isOn ? .blue : .primary)
+                            .clipShape(Capsule())
+                            .onTapGesture {
+                                if isOn {
+                                    selectedTags.remove(tag)
+                                } else {
+                                    selectedTags.insert(tag)
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+}
