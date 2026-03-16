@@ -12,6 +12,7 @@ struct Login: View {
     @State private var password = ""
     @State private var isLoggingIn = false
     @EnvironmentObject var viewModel: LoginViewModel
+    @State private var showContactSupport = false
 
     var body: some View {
         ZStack {
@@ -24,41 +25,51 @@ struct Login: View {
             .ignoresSafeArea()
             
             ScrollView {
-                VStack(spacing: 32) {
-                    Spacer(minLength: 60)
+                VStack(spacing: 20) {
+                    Spacer(minLength: 0)
                     
-                    // App Logo/Icon
-                    VStack(spacing: 16) {
-                        ZStack {
-                            // Smaller circular outline with black stroke
-                            Circle()
-                                .stroke(Color.black, lineWidth: 3)
-                                .frame(width: 120, height: 120)
-                            
-                            // BrokenBoard logo inside the circle
-                            Image("BrokenBoard")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 112, height: 112)
-                                .clipShape(Circle())
-                        }
-                        
-                        Text("SpotFinder")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
-                        
-                        Text("Discover and share skate spots")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.bottom, 20)
-                    
-                    // Login Card
+                    // Logo + Login Card blended into one surface
                     VStack(spacing: 24) {
+                        VStack(spacing: 16) {
+                            ZStack {
+                                // Outer black outline (slightly smaller than Home)
+                                Circle()
+                                    .stroke(Color.black, lineWidth: 3)
+                                    .frame(width: 172, height: 172)
+                                
+                                // Inner purple/blue ring just inside the black outline
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [.blue, .purple],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        ),
+                                        lineWidth: 5
+                                    )
+                                    .frame(width: 162, height: 162)
+                                
+                                // Logo image inside the rings, slightly shrunk
+                                Image("BrokenBoard")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 154, height: 154)
+                                    .clipShape(Circle())
+                            }
+                            
+                            Text("SpotFinder")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundColor(.primary)
+                            
+                            Text("Discover and share skate spots")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 8)
+                        
                         Text("Sign In")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
-                            .padding(.top, 8)
                         
                         // Email Field
                         VStack(alignment: .leading, spacing: 8) {
@@ -134,6 +145,20 @@ struct Login: View {
                         }
                         .font(.subheadline)
                         .padding(.top, 8)
+
+                        // Contact Support
+                        Button {
+                            showContactSupport = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "envelope.fill")
+                                    .font(.caption)
+                                Text("Contact Support")
+                            }
+                            .font(.subheadline)
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.top, 4)
                     }
                     .padding(28)
                     .background(
@@ -147,10 +172,16 @@ struct Login: View {
                 }
             }
         }
+        .sheet(isPresented: $showContactSupport) {
+            NavigationStack {
+                ContactSupportView()
+            }
+        }
     }
 }
-
 #Preview {
-    Login()
-        .environmentObject(LoginViewModel())
+    NavigationView {
+        Login()
+            .environmentObject(LoginViewModel())
+    }
 }

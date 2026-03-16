@@ -27,17 +27,29 @@ struct HomeView: View {
                 // App Icon/Logo area
                 VStack(spacing: 16) {
                     ZStack {
-                        // Circular outline (2× bigger) with black stroke
+                        // Outer black outline
                         Circle()
-                            .stroke(Color.black, lineWidth: 4)
+                            .stroke(Color.black, lineWidth: 3)
                             .frame(width: 192, height: 192)
                         
+                        // Inner purple/blue ring just inside the black outline
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.blue, .purple],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 5
+                            )
+                            .frame(width: 180, height: 180)
+                        
                         // Your logo image inside the circle, zoomed out a bit to avoid clipping
-                        Image("BrokenBoard")
+                        Image("GrassRamp")
                             .resizable()
                             .scaledToFit()
-                            // Slightly smaller than the outer circle to account for the stroke
-                            .frame(width: 176, height: 176)
+                            // Slightly smaller than the inner ring to account for the stroke
+                            .frame(width: 172, height: 172)
                             .clipShape(Circle())
                     }
                     
