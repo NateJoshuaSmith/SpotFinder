@@ -15,43 +15,61 @@ struct ContactSupportView: View {
     @State private var message: String = ""
     
     var body: some View {
-        Form {
-            Section {
-                TextField("Subject", text: $subject)
-                TextField("Describe your issue...", text: $message, axis: .vertical)
-                    .lineLimit(5...15)
-            } header: {
-                Text("Message")
-            } footer: {
-                Text("Your message will open in your email app. App version is included to help us assist you.")
-            }
+        ZStack {
+            // Remove white sheet feel by hiding default form background
+            Color.clear.ignoresSafeArea()
             
-            Section {
-                Button(action: openMail) {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "envelope.fill")
-                        Text("Open in Mail")
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(10)
+            Form {
+                Section {
+                    TextField("Subject", text: $subject)
+                    TextField("Describe your issue...", text: $message, axis: .vertical)
+                        .lineLimit(5...15)
+                } header: {
+                    Text("Message")
+                } footer: {
+                    Text("Your message will open in your email app. App version is included to help us assist you.")
                 }
                 
-                Button(action: copyEmail) {
+                Section {
+                    Button(action: openMail) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "envelope.fill")
+                            Text("Open in Mail")
+                                .fontWeight(.semibold)
+                            Spacer()
+                        }
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                    }
+                    
+                    Button(action: copyEmail) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "doc.on.doc.fill")
+                            Text("Copy Support Email")
+                                .fontWeight(.medium)
+                            Spacer()
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+                
+                // Decorative contact support icon at the bottom
+                Section {
                     HStack {
                         Spacer()
-                        Image(systemName: "doc.on.doc.fill")
-                        Text("Copy Support Email")
-                            .fontWeight(.medium)
+                        Image("ContactSupportIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 220) // larger help icon
                         Spacer()
                     }
-                    .foregroundColor(.blue)
                 }
             }
+            .scrollContentBackground(.hidden) // hide default white form background
         }
         .navigationTitle("Contact Support")
         .navigationBarTitleDisplayMode(.inline)
