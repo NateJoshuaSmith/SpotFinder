@@ -174,9 +174,19 @@ struct FriendsListView: View {
                 }
             }
         }
-        .navigationTitle("Friends")
+        .navigationTitle("") // we'll render a custom styled title instead
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Styled "Friends" title with capsule background, like Home
+            ToolbarItem(placement: .principal) {
+                Text("Friends")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color(.systemGray5)))
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isLoggedIn {
                     Button(action: { showAddFriend = true }) {

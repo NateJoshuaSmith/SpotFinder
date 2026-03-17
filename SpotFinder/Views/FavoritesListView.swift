@@ -122,8 +122,19 @@ struct FavoritesListView: View {
                 }
             }
         }
-        .navigationTitle("Favorites")
+        .navigationTitle("") // custom styled title like Friends/Home
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Favorites")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color(.systemGray5)))
+            }
+        }
         .task {
             await loadFavorites()
         }
