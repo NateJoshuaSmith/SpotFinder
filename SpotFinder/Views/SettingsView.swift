@@ -109,7 +109,7 @@ struct SettingsView: View {
                     Label("App Name", systemImage: "app.fill")
                         .foregroundColor(.primary)
                     Spacer()
-                    Text("SpotFinder")
+                    Text("Spotfinder")
                         .foregroundColor(.secondary)
                 }
             } header: {

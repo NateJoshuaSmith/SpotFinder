@@ -261,66 +261,129 @@ struct MapScreen: View {
             
             centerIndicator
             
-            // Filter bar
+            // Filter bar – centered below the navigation bar
             VStack {
-                HStack(spacing: 8) {
-                    Menu {
-                        Button("All tags") { selectedTagFilter = nil }
-                        ForEach(allTags, id: \.self) { tag in
-                            Button(tag) { selectedTagFilter = tag }
-                        }
-                    } label: {
-                        Label(selectedTagFilter ?? "Tags", systemImage: "tag")
-                    }
-                    
-                    Menu {
-                        Button("Any level") { selectedDifficultyFilter = nil }
-                        ForEach(allDifficulties, id: \.self) { level in
-                            Button(level) { selectedDifficultyFilter = level }
-                        }
-                    } label: {
-                        Label(selectedDifficultyFilter ?? "Difficulty", systemImage: "speedometer")
-                    }
-                    
-                    Menu {
-                        Button("Any status") { selectedStatusFilter = nil }
-                        ForEach(allStatuses, id: \.self) { s in
-                            Button(s) { selectedStatusFilter = s }
-                        }
-                    } label: {
-                        Label(selectedStatusFilter ?? "Status", systemImage: "flag")
-                    }
+                HStack {
+                    Spacer()
+                    filterBarCompact
+                    Spacer()
                 }
-                .padding(8)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-                .padding(.top, 12)
-                .padding(.horizontal)
-                
+                // Fixed offset so it sits comfortably under the bar
+                .padding(.top, 24)
                 Spacer()
             }
+            .zIndex(90)
+            
+            // Spotfinder logo at bottom in a bubble with black outline
+            VStack {
+                Spacer()
+                Image("SpotfinderLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 72)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color.black)
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [.blue.opacity(0.8), .purple.opacity(0.8)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        ),
+                                        lineWidth: 4
+                                    )
+                            )
+                    )
+                    .padding(.bottom, 16)
+            }
         }
+    }
+    
+    // Shrunk filter bar for toolbar (between back and favorite)
+    @ViewBuilder
+    private var filterBarCompact: some View {
+        HStack(spacing: 6) {
+            Menu {
+                Button("All tags") { selectedTagFilter = nil }
+                ForEach(allTags, id: \.self) { tag in
+                    Button(tag) { selectedTagFilter = tag }
+                }
+            } label: {
+                Label(selectedTagFilter ?? "Tags", systemImage: "tag")
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color(.systemGray5)))
+                    .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
+            }
+            Menu {
+                Button("Any level") { selectedDifficultyFilter = nil }
+                ForEach(allDifficulties, id: \.self) { level in
+                    Button(level) { selectedDifficultyFilter = level }
+                }
+            } label: {
+                Label(selectedDifficultyFilter ?? "Difficulty", systemImage: "speedometer")
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color(.systemGray5)))
+                    .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
+            }
+            Menu {
+                Button("Any status") { selectedStatusFilter = nil }
+                ForEach(allStatuses, id: \.self) { s in
+                    Button(s) { selectedStatusFilter = s }
+                }
+            } label: {
+                Label(selectedStatusFilter ?? "Status", systemImage: "flag")
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color(.systemGray5)))
+                    .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
+            }
+        }
+        .padding(6)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.black, lineWidth: 1.5)
+                )
+        )
     }
     
     // Toolbar content
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
+        // Friends and Skate shops as icon-only buttons next to the system back button
+        ToolbarItemGroup(placement: .navigationBarLeading) {
             NavigationLink(destination: FriendsListView()) {
-                Label("Friends", systemImage: "person.2.fill")
+                Image(systemName: "person.2.fill")
             }
-        }
-        ToolbarItem(placement: .navigationBarLeading) {
+            
             Button(action: { showSkateShopsSheet = true }) {
-                Label("Skate shops", systemImage: "storefront.fill")
+                Image(systemName: "storefront.fill")
             }
         }
+        
+        // Favorites and plus buttons (no outlines, gray circles)
         ToolbarItem(placement: .navigationBarTrailing) {
-            HStack(spacing: 16) {
+            HStack(spacing: 10) {
                 NavigationLink(destination: FavoritesListView()) {
                     Image(systemName: "heart.fill")
                         .foregroundColor(.pink)
+                        .padding(8)
                 }
+                
                 Button(action: {
                     if let region = mapRegion {
                         selectedLatitude = region.center.latitude
@@ -329,6 +392,8 @@ struct MapScreen: View {
                     showAddSpotSheet = true
                 }) {
                     Image(systemName: "plus")
+                        .foregroundColor(.primary)
+                        .padding(8)
                 }
             }
         }

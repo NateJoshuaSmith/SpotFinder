@@ -25,89 +25,152 @@ struct FriendsListView: View {
     }
     
     var body: some View {
-        Group {
-            if !isLoggedIn {
-                ContentUnavailableView(
-                    "Sign in to see friends",
-                    systemImage: "person.2.slash",
-                    description: Text("Log in to add and view your friends list.")
-                )
-            } else if isLoading {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                    Text("Loading friends...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if !hasAnyContent {
-                ContentUnavailableView(
-                    "No friends yet",
-                    systemImage: "person.2",
-                    description: Text("Tap \"Add friend\" to search by username and add people.")
-                )
-            } else {
-                List {
-                    if !pendingReceived.isEmpty {
-                        Section("Requests") {
-                            ForEach(pendingReceived, id: \.0.fromUid) { request, profile in
-                                HStack(spacing: 12) {
-                                    FriendRow(profile: profile, onRemove: nil)
-                                    Spacer()
-                                    Button("Accept") {
-                                        Task { await acceptRequest(request.fromUid) }
+        ZStack {
+            // Friends list background image with dark overlay, similar to Home
+            Image("FriendslistBackground")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+            
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+            
+            Group {
+                if !isLoggedIn {
+                    ContentUnavailableView(
+                        "Sign in to see friends",
+                        systemImage: "person.2.slash",
+                        description: Text("Log in to add and view your friends list.")
+                    )
+                } else if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Loading friends...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if !hasAnyContent {
+                    ContentUnavailableView(
+                        "No friends yet",
+                        systemImage: "person.2",
+                        description: Text("Tap \"Add friend\" to search by username and add people.")
+                    )
+                } else {
+                    List {
+                        if !pendingReceived.isEmpty {
+                            Section("Requests") {
+                                ForEach(pendingReceived, id: \.0.fromUid) { request, profile in
+                                    HStack {
+                                        Spacer(minLength: 0)
+                                        
+                                        HStack(spacing: 12) {
+                                            FriendRow(profile: profile, onRemove: nil)
+                                            Spacer()
+                                            Button("Accept") {
+                                                Task { await acceptRequest(request.fromUid) }
+                                            }
+                                            .buttonStyle(.borderedProminent)
+                                            Button("Decline", role: .destructive) {
+                                                Task { await declineRequest(request.fromUid) }
+                                            }
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .fill(Color.white.opacity(0.95))
+                                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                                        )
+                                        .frame(maxWidth: 360)
+                                        
+                                        Spacer(minLength: 0)
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    Button("Decline", role: .destructive) {
-                                        Task { await declineRequest(request.fromUid) }
-                                    }
+                                    .padding(.vertical, 4)
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                                 }
                             }
                         }
-                    }
-                    if !friends.isEmpty {
-                        Section("Friends") {
-                            ForEach(friends, id: \.uid) { profile in
-                                HStack(spacing: 0) {
-                                    NavigationLink(destination: ConversationView(friendProfile: profile)) {
-                                        FriendRow(profile: profile, onRemove: nil)
+                        if !friends.isEmpty {
+                            Section("Friends") {
+                                ForEach(friends, id: \.uid) { profile in
+                                    HStack {
+                                        Spacer(minLength: 0)
+                                        
+                                        HStack(spacing: 0) {
+                                            NavigationLink(destination: ConversationView(friendProfile: profile)) {
+                                                FriendRow(profile: profile, onRemove: nil)
+                                            }
+                                            Button(role: .destructive) {
+                                                Task { await removeFriend(profile.uid) }
+                                            } label: {
+                                                Text("Remove")
+                                                    .font(.subheadline)
+                                            }
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .fill(Color.white.opacity(0.95))
+                                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                                        )
+                                        .frame(maxWidth: 360)
+                                        
+                                        Spacer(minLength: 0)
                                     }
-                                    Button(role: .destructive) {
-                                        Task { await removeFriend(profile.uid) }
-                                    } label: {
-                                        Text("Remove")
+                                    .padding(.vertical, 4)
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                                }
+                            }
+                        }
+                        if !pendingSentProfiles.isEmpty {
+                            Section("Pending") {
+                                ForEach(pendingSentProfiles, id: \.uid) { profile in
+                                    HStack {
+                                        Spacer(minLength: 0)
+                                        
+                                        HStack(spacing: 12) {
+                                            FriendRow(profile: profile, onRemove: nil)
+                                            Spacer()
+                                            Text("Pending")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                            Button("Cancel", role: .destructive) {
+                                                Task { await cancelRequest(profile.uid) }
+                                            }
+                                            .buttonStyle(.borderless)
                                             .font(.subheadline)
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .fill(Color.white.opacity(0.95))
+                                                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                                        )
+                                        .frame(maxWidth: 360)
+                                        
+                                        Spacer(minLength: 0)
+                                    }
+                                    .padding(.vertical, 4)
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            Task { await cancelRequest(profile.uid) }
+                                        } label: {
+                                            Label("Cancel request", systemImage: "xmark.circle")
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    if !pendingSentProfiles.isEmpty {
-                        Section("Pending") {
-                            ForEach(pendingSentProfiles, id: \.uid) { profile in
-                                HStack(spacing: 12) {
-                                    FriendRow(profile: profile, onRemove: nil)
-                                    Spacer()
-                                    Text("Pending")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Button("Cancel", role: .destructive) {
-                                        Task { await cancelRequest(profile.uid) }
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .font(.subheadline)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) {
-                                        Task { await cancelRequest(profile.uid) }
-                                    } label: {
-                                        Label("Cancel request", systemImage: "xmark.circle")
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    .scrollContentBackground(.hidden) // let the FriendslistBackground show through
                 }
             }
         }

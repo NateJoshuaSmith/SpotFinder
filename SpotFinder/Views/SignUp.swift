@@ -36,6 +36,10 @@ struct SignUp: View {
             )
             .ignoresSafeArea()
             
+            // Dark overlay (same as home screen) so content stands out
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+            
             ScrollView {
                 VStack(spacing: 20) {
                     Spacer(minLength: 0)
@@ -44,10 +48,15 @@ struct SignUp: View {
                     VStack(spacing: 24) {
                         VStack(spacing: 16) {
                             ZStack {
-                                // Outer black outline (slightly smaller than Home)
+                                // Black fill
+                                Circle()
+                                    .fill(Color.black)
+                                    .frame(width: 164, height: 164)
+                                
+                                // Outer black outline
                                 Circle()
                                     .stroke(Color.black, lineWidth: 3)
-                                    .frame(width: 172, height: 172)
+                                    .frame(width: 164, height: 164)
                                 
                                 // Inner purple/blue ring just inside the black outline
                                 Circle()
@@ -59,19 +68,30 @@ struct SignUp: View {
                                         ),
                                         lineWidth: 5
                                     )
-                                    .frame(width: 162, height: 162)
+                                    .frame(width: 154, height: 154)
                                 
-                                // Logo image inside the rings, slightly shrunk
-                                Image("BrokenBoard")
+                                // Spotfinder logo inside the rings, centered
+                                Image("SpotfinderLogo")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(width: 154, height: 154)
+                                    .frame(width: 162, height: 162)
+                                    .frame(width: 164, height: 164, alignment: .center)
                                     .clipShape(Circle())
                             }
                             
-                            Text("SpotFinder")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                            Image("BrokenBoard")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(height: 112)
+                            
+                            Text("Welcome to Spotfinder")
+                                .font(.headline)
+                                .fontWeight(.bold)
                                 .foregroundColor(.primary)
+                            
+                            Text("Discover and share skate spots")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                         .padding(.top, 8)
                         

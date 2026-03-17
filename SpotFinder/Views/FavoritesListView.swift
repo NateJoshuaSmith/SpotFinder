@@ -20,77 +20,105 @@ struct FavoritesListView: View {
     }
     
     var body: some View {
-        Group {
-            if !isLoggedIn {
-                ContentUnavailableView(
-                    "Sign in to see favorites",
-                    systemImage: "heart.slash",
-                    description: Text("Log in to save spots to your favorites list.")
-                )
-            } else if isLoading {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                    Text("Loading favorites...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if favoriteSpots.isEmpty {
-                ContentUnavailableView(
-                    "No favorites yet",
-                    systemImage: "heart",
-                    description: Text("Tap the heart on a spot to add it here.")
-                )
-            } else {
-                List {
-                    ForEach(favoriteSpots) { spot in
-                        Button(action: { selectedSpot = spot }) {
-                            HStack(spacing: 12) {
-                                if let urlString = spot.imageURL ?? spot.imageURLs?.first,
-                                   let url = URL(string: urlString) {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFill()
-                                        default:
-                                            Rectangle()
+        ZStack {
+            // Friend-style background with dark overlay for favorites
+            Image("FriendBackground")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+            
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+            
+            Group {
+                if !isLoggedIn {
+                    ContentUnavailableView(
+                        "Sign in to see favorites",
+                        systemImage: "heart.slash",
+                        description: Text("Log in to save spots to your favorites list.")
+                    )
+                } else if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Loading favorites...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if favoriteSpots.isEmpty {
+                    ContentUnavailableView(
+                        "No favorites yet",
+                        systemImage: "heart",
+                        description: Text("Tap the heart on a spot to add it here.")
+                    )
+                } else {
+                    List {
+                        ForEach(favoriteSpots) { spot in
+                            HStack {
+                                Spacer(minLength: 0)
+                                
+                                Button(action: { selectedSpot = spot }) {
+                                    HStack(spacing: 12) {
+                                        if let urlString = spot.imageURL ?? spot.imageURLs?.first,
+                                           let url = URL(string: urlString) {
+                                            AsyncImage(url: url) { phase in
+                                                switch phase {
+                                                case .success(let image):
+                                                    image
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                default:
+                                                    Rectangle()
+                                                        .fill(Color(.systemGray5))
+                                                }
+                                            }
+                                            .frame(width: 56, height: 56)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                                        } else {
+                                            RoundedRectangle(cornerRadius: 10)
                                                 .fill(Color(.systemGray5))
+                                                .frame(width: 56, height: 56)
+                                                .overlay(
+                                                    Image(systemName: "mappin.circle.fill")
+                                                        .foregroundColor(.secondary)
+                                                )
                                         }
-                                    }
-                                    .frame(width: 56, height: 56)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                } else {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color(.systemGray5))
-                                        .frame(width: 56, height: 56)
-                                        .overlay(
-                                            Image(systemName: "mappin.circle.fill")
-                                                .foregroundColor(.secondary)
-                                        )
-                                }
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(spot.name)
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                    if let username = spot.createdByUsername, !username.isEmpty {
-                                        Text("by @\(username)")
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(spot.name)
+                                                .font(.headline)
+                                                .foregroundColor(.primary)
+                                            if let username = spot.createdByUsername, !username.isEmpty {
+                                                Text("by @\(username)")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .fill(Color.white.opacity(0.95))
+                                            .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                                    )
+                                    .frame(maxWidth: 360)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                .buttonStyle(.plain)
+                                
+                                Spacer(minLength: 0)
                             }
                             .padding(.vertical, 4)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                         }
-                        .buttonStyle(.plain)
                     }
+                    .scrollContentBackground(.hidden)
                 }
             }
         }

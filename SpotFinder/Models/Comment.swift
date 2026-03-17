@@ -33,3 +33,4 @@ struct SpotComment: Identifiable, Codable, Equatable {
     func hasLiked(userId: String) -> Bool { likedBy.contains(userId) }
     func hasDisliked(userId: String) -> Bool { dislikedBy.contains(userId) }
 }
+
