@@ -15,6 +15,7 @@ struct MapScreen: View {
     )
     @State private var showAddSpotSheet = false
     @State private var showSkateShopsSheet = false
+    @State private var showSkateParksSheet = false
     @State private var selectedLatitude: Double = 37.7749
     @State private var selectedLongitude: Double = -122.4194
     @State private var mapRegion: MKCoordinateRegion?
@@ -260,19 +261,19 @@ struct MapScreen: View {
             
             centerIndicator
             
-            // Filter bar – centered, pulled up into the nav bar area
+            // Filter bar – centered close under the nav bar
             VStack {
                 HStack {
                     Spacer()
                     filterBarCompact
                     Spacer()
                 }
-                .padding(.top, -24) // stronger negative to move higher
+                .padding(.top, 36)
                 Spacer()
             }
             .zIndex(90)
             
-            // Re-center button (blue arrow-style) aligned with filter bar / nav bar
+            // Re-center button (blue arrow-style) aligned with filter bar
             VStack {
                 HStack {
                     Spacer()
@@ -303,7 +304,7 @@ struct MapScreen: View {
                     }
                     .padding(.trailing, 12)
                 }
-                .padding(.top, -24) // match filter bar vertical offset
+                .padding(.top, 36)
                 Spacer()
             }
             .zIndex(95)
@@ -337,51 +338,63 @@ struct MapScreen: View {
         }
     }
     
-    // Shrunk filter bar for toolbar (between back and favorite)
+    // Shrunk filter bar with centered home icon above tags
     @ViewBuilder
     private var filterBarCompact: some View {
-        HStack(spacing: 6) {
-            Menu {
-                Button("All tags") { selectedTagFilter = nil }
-                ForEach(allTags, id: \.self) { tag in
-                    Button(tag) { selectedTagFilter = tag }
-                }
-            } label: {
-                Label(selectedTagFilter ?? "Tags", systemImage: "tag")
-                    .font(.caption2.weight(.medium))
+        VStack(spacing: 4) {
+            // Home icon centered above the filters
+            Button(action: { dismiss() }) {
+                Image(systemName: "house.fill")
                     .foregroundColor(.primary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color(.systemGray5)))
-                    .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
+                    .padding(6)
+                    .background(
+                        Circle().fill(Color(.systemGray5))
+                    )
             }
-            Menu {
-                Button("Any level") { selectedDifficultyFilter = nil }
-                ForEach(allDifficulties, id: \.self) { level in
-                    Button(level) { selectedDifficultyFilter = level }
+            
+            HStack(spacing: 6) {
+                Menu {
+                    Button("All tags") { selectedTagFilter = nil }
+                    ForEach(allTags, id: \.self) { tag in
+                        Button(tag) { selectedTagFilter = tag }
+                    }
+                } label: {
+                    Label(selectedTagFilter ?? "Tags", systemImage: "tag")
+                        .font(.caption2.weight(.medium))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color(.systemGray5)))
+                        .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
                 }
-            } label: {
-                Label(selectedDifficultyFilter ?? "Difficulty", systemImage: "speedometer")
-                    .font(.caption2.weight(.medium))
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color(.systemGray5)))
-                    .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
-            }
-            Menu {
-                Button("Any status") { selectedStatusFilter = nil }
-                ForEach(allStatuses, id: \.self) { s in
-                    Button(s) { selectedStatusFilter = s }
+                Menu {
+                    Button("Any level") { selectedDifficultyFilter = nil }
+                    ForEach(allDifficulties, id: \.self) { level in
+                        Button(level) { selectedDifficultyFilter = level }
+                    }
+                } label: {
+                    Label(selectedDifficultyFilter ?? "Difficulty", systemImage: "speedometer")
+                        .font(.caption2.weight(.medium))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color(.systemGray5)))
+                        .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
                 }
-            } label: {
-                Label(selectedStatusFilter ?? "Status", systemImage: "flag")
-                    .font(.caption2.weight(.medium))
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color(.systemGray5)))
-                    .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
+                Menu {
+                    Button("Any status") { selectedStatusFilter = nil }
+                    ForEach(allStatuses, id: \.self) { s in
+                        Button(s) { selectedStatusFilter = s }
+                    }
+                } label: {
+                    Label(selectedStatusFilter ?? "Status", systemImage: "flag")
+                        .font(.caption2.weight(.medium))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color(.systemGray5)))
+                        .overlay(Capsule().stroke(Color.black, lineWidth: 1.5))
+                }
             }
         }
         .padding(6)
@@ -407,16 +420,11 @@ struct MapScreen: View {
             Button(action: { showSkateShopsSheet = true }) {
                 Image(systemName: "storefront.fill")
             }
-        }
-        
-        // Center home icon between leading and trailing items; tap to go back home
-        ToolbarItem(placement: .principal) {
-            Button(action: { dismiss() }) {
-                Image(systemName: "house.fill")
-                    .foregroundColor(.primary)
+            
+            Button(action: { showSkateParksSheet = true }) {
+                Image(systemName: "figure.skateboarding")
             }
         }
-        
         // Favorites and plus buttons (no outlines, gray circles)
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 10) {
@@ -510,6 +518,13 @@ struct MapScreen: View {
         }
         .sheet(isPresented: $showSkateShopsSheet) {
             NearbySkateShopsView(
+                latitude: selectedLatitude,
+                longitude: selectedLongitude,
+                radiusMeters: 10000
+            )
+        }
+        .sheet(isPresented: $showSkateParksSheet) {
+            NearbySkateParksView(
                 latitude: selectedLatitude,
                 longitude: selectedLongitude,
                 radiusMeters: 10000

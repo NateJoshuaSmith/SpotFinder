@@ -21,35 +21,58 @@ struct NearbySkateShopsView: View {
     
     var body: some View {
         NavigationView {
-            Group {
-                if isLoading {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                        Text("Finding skate shops nearby…")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if places.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "storefront")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                        Text("No skate shops found in this area")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List(places) { place in
-                        SkateShopRow(place: place)
+            ZStack {
+                // Same background as login: gradient + dark overlay
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                Color.black.opacity(0.45)
+                    .ignoresSafeArea()
+                
+                Group {
+                    if isLoading {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Finding skate shops nearby…")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if places.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "storefront")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                            Text("No skate shops found in this area")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List(places) { place in
+                            SkateShopRow(place: place)
+                        }
+                        .scrollContentBackground(.hidden)
                     }
                 }
             }
-            .navigationTitle("Skate Shops Nearby")
+            .navigationTitle("") // custom styled title bubble like Settings
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Skate Shops Nearby")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color(.systemGray5)))
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()

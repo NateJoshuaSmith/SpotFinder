@@ -138,6 +138,79 @@ struct GooglePlacesService {
         }
     }
     
+    /// Search for skate parks near the given coordinate.
+    func fetchNearbySkateParks(latitude: Double, longitude: Double, radiusMeters: Double = 10000) async -> [NearbyPlace] {
+        guard let key = Self.apiKey, !key.isEmpty else {
+            print("[PlacesNew] Aborting fetchNearbySkateParks – no API key")
+            return []
+        }
+        
+        guard let url = URL(string: "https://places.googleapis.com/v1/places:searchText") else { return [] }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue(key, forHTTPHeaderField: "X-Goog-Api-Key")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("places.id,places.displayName,places.formattedAddress,places.location", forHTTPHeaderField: "X-Goog-FieldMask")
+        
+        let body: [String: Any] = [
+            "textQuery": "skate park",
+            "locationBias": [
+                "circle": [
+                    "center": [
+                        "latitude": latitude,
+                        "longitude": longitude
+                    ],
+                    "radius": radiusMeters
+                ]
+            ],
+            "maxResultCount": 20
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            print("[PlacesNew] Failed to encode skate park search body: \(error.localizedDescription)")
+            return []
+        }
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                print("[PlacesNew] searchText (skate parks) HTTP status: \(http.statusCode)")
+            }
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            if let errorMessage = json?["error_message"] as? String {
+                print("[PlacesNew] skate parks search error_message: \(errorMessage)")
+            }
+            
+            guard let places = json?["places"] as? [[String: Any]] else {
+                return []
+            }
+            
+            var results: [NearbyPlace] = []
+            for place in places {
+                let placeId = place["id"] as? String ?? ""
+                let name = (place["displayName"] as? [String: Any])?["text"] as? String ?? "Unknown"
+                let address = place["formattedAddress"] as? String
+                guard let loc = place["location"] as? [String: Any],
+                      let lat = loc["latitude"] as? Double,
+                      let lng = loc["longitude"] as? Double else { continue }
+                results.append(NearbyPlace(
+                    id: placeId.isEmpty ? "\(lat)-\(lng)" : placeId,
+                    name: name,
+                    formattedAddress: address,
+                    latitude: lat,
+                    longitude: lng
+                ))
+            }
+            return results
+        } catch {
+            print("[PlacesNew] searchText (skate parks) error: \(error.localizedDescription)")
+            return []
+        }
+    }
+    
     /// Calls places.searchText (New) and returns the resource name of the first photo, if any.
     /// We request only minimal fields via X-Goog-FieldMask to keep usage low.
     private func findFirstPhotoResourceName(latitude: Double,
