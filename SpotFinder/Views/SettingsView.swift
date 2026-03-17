@@ -21,115 +21,236 @@ struct SettingsView: View {
     @State private var showChangeUsername = false
     
     var body: some View {
-        List {
-            Section {
-                HStack(spacing: 16) {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        Group {
-                            if let urlString = avatarURL, let url = URL(string: urlString) {
-                                ZStack {
-                                    // Always show placeholder underneath to avoid a blank flash
-                                    avatarPlaceholder
-                                    AsyncImage(
-                                        url: url,
-                                        transaction: Transaction(animation: .easeInOut)
-                                    ) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFill()
-                                                .transition(.opacity)
-                                        case .empty:
-                                            Color.clear   // placeholder already behind
-                                        case .failure:
+        ZStack {
+            // Settings background image with dark overlay, like Friends/Favorites
+            Image("SettingPage")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+            
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+            
+            List {
+                Section {
+                    // Account info row as centered card
+                    HStack {
+                        Spacer(minLength: 0)
+                        
+                        HStack(spacing: 16) {
+                            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                                Group {
+                                    if let urlString = avatarURL, let url = URL(string: urlString) {
+                                        ZStack {
+                                            // Always show placeholder underneath to avoid a blank flash
                                             avatarPlaceholder
-                                        @unknown default:
-                                            avatarPlaceholder
+                                            AsyncImage(
+                                                url: url,
+                                                transaction: Transaction(animation: .easeInOut)
+                                            ) { phase in
+                                                switch phase {
+                                                case .success(let image):
+                                                    image
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                        .transition(.opacity)
+                                                case .empty:
+                                                    Color.clear   // placeholder already behind
+                                                case .failure:
+                                                    avatarPlaceholder
+                                                @unknown default:
+                                                    avatarPlaceholder
+                                                }
+                                            }
                                         }
+                                        .frame(width: 56, height: 56)
+                                        .clipShape(Circle())
+                                        .overlay(isUploadingAvatar ? ProgressView().tint(.white) : nil)
+                                    } else {
+                                        avatarPlaceholder
+                                            .overlay(isUploadingAvatar ? ProgressView().tint(.white) : nil)
                                     }
                                 }
                                 .frame(width: 56, height: 56)
-                                .clipShape(Circle())
-                                .overlay(isUploadingAvatar ? ProgressView().tint(.white) : nil)
-                            } else {
-                                avatarPlaceholder
-                                    .overlay(isUploadingAvatar ? ProgressView().tint(.white) : nil)
                             }
+                            .disabled(isUploadingAvatar)
+                            .onChange(of: selectedPhotoItem) { _, newItem in
+                                guard let item = newItem else { return }
+                                Task { await uploadAvatar(from: item) }
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Account")
+                                    .font(.headline)
+                                Text(userEmail)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                if let name = currentUsername, !name.isEmpty {
+                                    Text("@\(name)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
                         }
-                        .frame(width: 56, height: 56)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(.systemBackground).opacity(0.95))
+                                .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                        )
+                        .frame(maxWidth: 360)
+                        
+                        Spacer(minLength: 0)
                     }
-                    .disabled(isUploadingAvatar)
-                    .onChange(of: selectedPhotoItem) { _, newItem in
-                        guard let item = newItem else { return }
-                        Task { await uploadAvatar(from: item) }
-                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Account")
-                            .font(.headline)
-                        Text(userEmail)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        if let name = currentUsername, !name.isEmpty {
-                            Text("@\(name)")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                    // Change username row as centered card
+                    HStack {
+                        Spacer(minLength: 0)
+                        
+                        Button(action: { showChangeUsername = true }) {
+                            HStack {
+                                Label("Change username", systemImage: "at.circle")
+                                    .foregroundColor(.blue)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Color(.systemBackground).opacity(0.95))
+                                    .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                            )
+                            .frame(maxWidth: 360)
                         }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        
+                        Spacer(minLength: 0)
                     }
-                    
-                    Spacer()
-                }
-                .padding(.vertical, 4)
-                
-                Button(action: { showChangeUsername = true }) {
-                    Label("Change username", systemImage: "at.circle")
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-            } header: {
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                } header: {
                 Text("Account")
                     .font(.headline)
-            } footer: {
-                Text("Tap your photo to change it.")
-                    .font(.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color(.systemGray5)))
+            }
+            
+            Section {
+                // Version row as a centered card (like Friends/Favorites UI)
+                HStack {
+                    Spacer(minLength: 0)
+                    
+                    HStack {
+                        Label("Version", systemImage: "info.circle.fill")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text(appVersion)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(.systemBackground).opacity(0.95))
+                            .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                    )
+                    .frame(maxWidth: 360)
+                    
+                    Spacer(minLength: 0)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
+                
+                // App name row as a centered card
+                HStack {
+                    Spacer(minLength: 0)
+                    
+                    HStack {
+                        Label("App Name", systemImage: "app.fill")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Text("Spotfinder")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(.systemBackground).opacity(0.95))
+                            .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                    )
+                    .frame(maxWidth: 360)
+                    
+                    Spacer(minLength: 0)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+            } header: {
+                Text("About")
+                    .font(.headline)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color(.systemGray5)))
             }
             
             Section {
                 HStack {
-                    Label("Version", systemImage: "info.circle.fill")
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text(appVersion)
-                        .foregroundColor(.secondary)
+                    Spacer(minLength: 0)
+                    
+                    Button(action: {
+                        showContactSupport = true
+                    }) {
+                        HStack {
+                            Label("Contact Support", systemImage: "envelope.fill")
+                                .foregroundColor(.blue)
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(.systemBackground).opacity(0.95))
+                                .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                        )
+                        .frame(maxWidth: 360)
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    
+                    Spacer(minLength: 0)
                 }
-                
-                HStack {
-                    Label("App Name", systemImage: "app.fill")
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text("Spotfinder")
-                        .foregroundColor(.secondary)
-                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
             } header: {
-                Text("About")
+                Text("Help & Support")
                     .font(.headline)
-            }
-            
-            Section("Help & Support") {
-                Button(action: {
-                    showContactSupport = true
-                }) {
-                    Label("Contact Support", systemImage: "envelope.fill")
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color(.systemGray5)))
             }
         }
-        .navigationTitle("Settings")
+        .scrollContentBackground(.hidden) // let the SettingPage background show through
+    }
+        .navigationTitle("") // custom styled title bubble like other screens
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Settings")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color(.systemGray5)))
+            }
+        }
         .sheet(isPresented: $showContactSupport) {
             NavigationStack {
                 ContactSupportView()
