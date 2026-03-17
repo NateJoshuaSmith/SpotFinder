@@ -10,6 +10,8 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var viewModel: LoginViewModel
     @State private var showSettings: Bool = false
+    @State private var cardOffset: CGFloat = 0
+    @State private var dragTranslation: CGFloat = 0
     
     var body: some View {
         ZStack {
@@ -26,7 +28,7 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
-                // Square stylized card: vertically centered so it stays centered when card size changes
+                // Square stylized card: vertically centered and draggable up/down
                 VStack(spacing: 24) {
                     // App Icon/Logo area
                     VStack(spacing: 16) {
@@ -192,6 +194,20 @@ struct HomeView: View {
                 .padding(.leading, 18)
                 .padding(.trailing, 30)
                 .padding(.top, -44)
+                .offset(y: cardOffset + dragTranslation)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            // Live drag offset, limited so it doesn't go too far
+                            dragTranslation = value.translation.height
+                        }
+                        .onEnded { value in
+                            // Add a bit of "settling" motion, lightly clamped
+                            let proposed = cardOffset + value.translation.height * 0.4
+                            cardOffset = max(-40, min(40, proposed))
+                            dragTranslation = 0
+                        }
+                )
                 
                 Spacer(minLength: 0)
             }

@@ -4,6 +4,7 @@ import CoreLocation
 import FirebaseAuth
 
 struct MapScreen: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var spotService = SpotService()
     @StateObject private var locationManager = LocationManager()
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -205,7 +206,6 @@ struct MapScreen: View {
     @ViewBuilder
     private func mapView(geometry: GeometryProxy, proxy: MapProxy) -> some View {
         Map(position: $cameraPosition) {
-            UserAnnotation()
             ForEach(filteredSpots) { spot in
                 Annotation(spot.name, coordinate: CLLocationCoordinate2D(latitude: spot.latitude, longitude: spot.longitude)) {
                     Image(systemName: "mappin.circle.fill")
@@ -221,7 +221,6 @@ struct MapScreen: View {
         }
         .mapStyle(.standard(elevation: .realistic))
         .mapControls {
-            MapUserLocationButton()
             MapCompass()
         }
         .onMapCameraChange(frequency: .continuous) { context in
@@ -261,18 +260,53 @@ struct MapScreen: View {
             
             centerIndicator
             
-            // Filter bar – centered below the navigation bar
+            // Filter bar – centered, pulled up into the nav bar area
             VStack {
                 HStack {
                     Spacer()
                     filterBarCompact
                     Spacer()
                 }
-                // Fixed offset so it sits comfortably under the bar
-                .padding(.top, 24)
+                .padding(.top, -24) // stronger negative to move higher
                 Spacer()
             }
             .zIndex(90)
+            
+            // Re-center button (blue arrow-style) aligned with filter bar / nav bar
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        if let userLocation = locationManager.location {
+                            let coord = userLocation.coordinate
+                            // Make sure coordinates are valid before centering
+                            if coord.latitude >= -90, coord.latitude <= 90,
+                               coord.longitude >= -180, coord.longitude <= 180,
+                               coord.latitude != 0 || coord.longitude != 0 {
+                                cameraPosition = .region(
+                                    MKCoordinateRegion(
+                                        center: coord,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                                    )
+                                )
+                                hasCenteredOnUserLocation = true
+                            }
+                        }
+                    }) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(
+                                Circle().fill(Color.blue)
+                            )
+                    }
+                    .padding(.trailing, 12)
+                }
+                .padding(.top, -24) // match filter bar vertical offset
+                Spacer()
+            }
+            .zIndex(95)
             
             // Spotfinder logo at bottom in a bubble with black outline
             VStack {
@@ -375,6 +409,14 @@ struct MapScreen: View {
             }
         }
         
+        // Center home icon between leading and trailing items; tap to go back home
+        ToolbarItem(placement: .principal) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "house.fill")
+                    .foregroundColor(.primary)
+            }
+        }
+        
         // Favorites and plus buttons (no outlines, gray circles)
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 10) {
@@ -452,6 +494,7 @@ struct MapScreen: View {
         GeometryReader { geometry in
             mapContent(geometry: geometry)
         }
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             toolbarContent
         }
