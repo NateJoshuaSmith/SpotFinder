@@ -84,12 +84,12 @@ struct SignUp: View {
                                 .scaledToFit()
                                 .frame(height: 112)
                             
-                            Text("Welcome to Spotfinder")
+                            Text("Create your Spotfinder account")
                                 .font(.headline)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
                             
-                            Text("Discover and share skate spots")
+                            Text("Sign up to start discovering and sharing skate spots.")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
