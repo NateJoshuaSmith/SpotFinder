@@ -263,9 +263,23 @@ class UserService: ObservableObject {
         guard let uid = authService.currentUserId else {
             throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
+        // Remove friend from the current user's friendIds
         try await db.collection(collectionName).document(uid).setData([
             "friendIds": FieldValue.arrayRemove([friendUid])
         ], merge: true)
+        
+        // Mark any existing friend request between these two users as no longer active
+        let outgoingId = FriendRequest.requestId(from: uid, to: friendUid)
+        let incomingId = FriendRequest.requestId(from: friendUid, to: uid)
+        let requestsRef = db.collection(friendRequestsCollection)
+        // Best-effort updates; ignore failures so a missing doc doesn't break removal
+        try? await requestsRef.document(outgoingId).setData([
+            "status": FriendRequest.statusDeclined
+        ], merge: true)
+        try? await requestsRef.document(incomingId).setData([
+            "status": FriendRequest.statusDeclined
+        ], merge: true)
+        
         await MainActor.run {
             friendIds.removeAll { $0 == friendUid }
         }
@@ -300,7 +314,13 @@ class UserService: ObservableObject {
                 return
             }
             if status == FriendRequest.statusAccepted {
-                throw NSError(domain: "UserService", code: 409, userInfo: [NSLocalizedDescriptionKey: "Already friends"])
+                // If Firestore still says "accepted" but the other user is no longer
+                // in our in-memory friendIds (e.g. friendship was removed), allow
+                // a fresh request; otherwise, treat as already friends.
+                if friendIds.contains(toUid) {
+                    throw NSError(domain: "UserService", code: 409, userInfo: [NSLocalizedDescriptionKey: "Already friends"])
+                }
+                // Fall through and overwrite with a new pending request below.
             }
         }
         try await ref.setData([
@@ -328,7 +348,8 @@ class UserService: ObservableObject {
         await MainActor.run { pendingSentIds.removeAll { $0 == toUid } }
     }
     
-    /// Accept an incoming friend request. Adds them to your friendIds; they add you when they next load (so we only write our own document).
+    /// Accept an incoming friend request. Adds sender to the current user's friendIds;
+    /// the sender will add the receiver on their side via processAcceptedRequests().
     func acceptFriendRequest(fromUid: String) async throws {
         guard let uid = authService.currentUserId else {
             throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
@@ -343,6 +364,7 @@ class UserService: ObservableObject {
             throw NSError(domain: "UserService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Request not found or already handled"])
         }
         try await ref.updateData(["status": FriendRequest.statusAccepted])
+        // Only update the current user's document; Firestore rules allow this.
         try await db.collection(collectionName).document(uid).setData([
             "friendIds": FieldValue.arrayUnion([fromUid])
         ], merge: true)
@@ -412,14 +434,17 @@ class UserService: ObservableObject {
         guard let uid = authService.currentUserId else {
             throw NSError(domain: "UserService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
+        print("[UserService] loadPendingReceived for uid=\(uid)")
         let snapshot = try await db.collection(friendRequestsCollection)
             .whereField("toUid", isEqualTo: uid)
             .whereField("status", isEqualTo: FriendRequest.statusPending)
             .order(by: "createdAt", descending: true)
             .getDocuments()
-        return snapshot.documents.compactMap { doc in
+        let requests = snapshot.documents.compactMap { doc in
             try? doc.data(as: FriendRequest.self)
         }
+        print("[UserService] loadPendingReceived found \(requests.count) pending requests")
+        return requests
     }
     
     /// Search users by username prefix (case-insensitive). Excludes current user. Requires Firestore rule allowing read on users for authenticated users.

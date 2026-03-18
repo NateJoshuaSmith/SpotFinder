@@ -99,16 +99,22 @@ struct FriendsListView: View {
                                     HStack {
                                         Spacer(minLength: 0)
                                         
-                                        HStack(spacing: 0) {
+                                        HStack(spacing: 12) {
+                                            // Only the avatar/name area is tappable for opening the conversation.
                                             NavigationLink(destination: ConversationView(friendProfile: profile)) {
                                                 FriendRow(profile: profile, onRemove: nil)
                                             }
+                                            .buttonStyle(.plain)
+                                            
+                                            Spacer(minLength: 0)
+                                            
                                             Button(role: .destructive) {
                                                 Task { await removeFriend(profile.uid) }
                                             } label: {
                                                 Text("Remove")
                                                     .font(.subheadline)
                                             }
+                                            .buttonStyle(.bordered)
                                         }
                                         .padding(.vertical, 8)
                                         .padding(.horizontal, 12)
@@ -142,7 +148,7 @@ struct FriendsListView: View {
                                             Button("Cancel", role: .destructive) {
                                                 Task { await cancelRequest(profile.uid) }
                                             }
-                                            .buttonStyle(.borderless)
+                                            .buttonStyle(.bordered)
                                             .font(.subheadline)
                                         }
                                         .padding(.vertical, 8)
@@ -212,6 +218,7 @@ struct FriendsListView: View {
             isLoading = false
             return
         }
+        print("[FriendsListView] loadFriends starting")
         isLoading = true
         await userService.loadFriends()
         await userService.loadPendingSent()
@@ -220,6 +227,7 @@ struct FriendsListView: View {
         await refreshPendingSentProfiles()
         await loadPendingReceived()
         await MainActor.run { isLoading = false }
+        print("[FriendsListView] loadFriends finished. friends=\(friends.count), pendingSent=\(pendingSentProfiles.count), pendingReceived=\(pendingReceived.count)")
     }
     
     /// Refresh friends and pending lists from current in-memory state (e.g. after adding a friend).
@@ -255,16 +263,22 @@ struct FriendsListView: View {
     }
     
     private func loadPendingReceived() async {
+        print("[FriendsListView] loadPendingReceived called")
         guard let requests = try? await userService.loadPendingReceived() else {
+            print("[FriendsListView] loadPendingReceived: userService.loadPendingReceived failed or no requests")
             await MainActor.run { pendingReceived = [] }
             return
         }
+        print("[FriendsListView] loadPendingReceived: got \(requests.count) FriendRequest objects")
         var result: [(FriendRequest, UserProfile)] = []
         for request in requests {
             if let profile = try? await userService.getProfile(uid: request.fromUid) {
                 result.append((request, profile))
+            } else {
+                print("[FriendsListView] loadPendingReceived: failed to load profile for fromUid=\(request.fromUid)")
             }
         }
+        print("[FriendsListView] loadPendingReceived: resolved \(result.count) profiles")
         await MainActor.run { pendingReceived = result }
     }
     
