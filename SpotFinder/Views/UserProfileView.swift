@@ -7,29 +7,40 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct UserProfileView: View {
     let profile: UserProfile
     
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var userService = UserService()
+    @StateObject private var spotService = SpotService()
+    @StateObject private var communityService = CommunityService()
+    @State private var loadedProfile: UserProfile?
+    @State private var userSpots: [SkateSpot] = []
+    @State private var userCommunityPosts: [CommunityPost] = []
+    @State private var isLoadingProfile = true
+    @State private var profileLoadError: String?
     @State private var isSendingRequest = false
     @State private var requestError: String?
     
+    private var displayProfile: UserProfile {
+        loadedProfile ?? profile
+    }
+    
     private var isCurrentUser: Bool {
-        Auth.auth().currentUser?.uid == profile.uid
+        Auth.auth().currentUser?.uid == displayProfile.uid
     }
     
     private var isFriend: Bool {
-        userService.isFriend(uid: profile.uid)
+        userService.isFriend(uid: displayProfile.uid)
     }
     
     private var hasPendingSent: Bool {
-        userService.hasPendingSentRequest(toUid: profile.uid)
+        userService.hasPendingSentRequest(toUid: displayProfile.uid)
     }
     
     private var formattedJoinDate: String? {
-        guard let createdAt = profile.createdAt else { return nil }
+        guard let createdAt = displayProfile.createdAt else { return nil }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
@@ -45,11 +56,11 @@ struct UserProfileView: View {
                 
                 // Username + basic info
                 VStack(spacing: 8) {
-                    Text(profile.username)
+                    Text(displayProfile.username)
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                     
-                    if let email = profile.email, !email.isEmpty, isCurrentUser {
+                    if let email = displayProfile.email, !email.isEmpty, isCurrentUser {
                         Text(email)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -69,10 +80,18 @@ struct UserProfileView: View {
                 }
                 .padding(.horizontal)
                 
-                // Actions
+                if isLoadingProfile {
+                    ProgressView("Loading profile...")
+                } else if let profileLoadError {
+                    Text(profileLoadError)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+
                 if !isCurrentUser {
                     VStack(spacing: 12) {
-                        NavigationLink(destination: ConversationView(friendProfile: profile)) {
+                        NavigationLink(destination: ConversationView(friendProfile: displayProfile)) {
                             Label("Message", systemImage: "bubble.left.and.bubble.right.fill")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
@@ -121,6 +140,30 @@ struct UserProfileView: View {
                     }
                     .padding(.horizontal)
                 }
+
+                VStack(spacing: 12) {
+                    contentHeader(title: "Community Posts (\(userCommunityPosts.count))")
+                    if userCommunityPosts.isEmpty {
+                        emptyBubble(text: "No community posts yet.")
+                    } else {
+                        ForEach(userCommunityPosts.prefix(8), id: \.id) { post in
+                            communityPostRow(post)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                VStack(spacing: 12) {
+                    contentHeader(title: "Spots Added (\(userSpots.count))")
+                    if userSpots.isEmpty {
+                        emptyBubble(text: "No skate spots added yet.")
+                    } else {
+                        ForEach(userSpots.prefix(8), id: \.id) { spot in
+                            spotRow(spot)
+                        }
+                    }
+                }
+                .padding(.horizontal)
                 
                 Spacer(minLength: 0)
             }
@@ -132,19 +175,19 @@ struct UserProfileView: View {
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-                .overlay(Color.black.opacity(0.45).ignoresSafeArea())
         )
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await userService.loadFriends()
             await userService.loadPendingSent()
+            await loadProfileContent()
         }
     }
     
     @ViewBuilder
     private var avatarView: some View {
-        if let urlString = profile.avatarURL, let url = URL(string: urlString) {
+        if let urlString = displayProfile.avatarURL, let url = URL(string: urlString) {
             AsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
@@ -181,9 +224,111 @@ struct UserProfileView: View {
                     .font(.title)
             )
     }
+    
+    private func contentHeader(title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+            Spacer()
+        }
+    }
+    
+    private func emptyBubble(text: String) -> some View {
+        HStack {
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.95))
+                .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 2)
+        )
+    }
+    
+    private func communityPostRow(_ post: CommunityPost) -> some View {
+        NavigationLink(destination: CommunityPostDetailView(post: post)) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(post.text)
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
+                    .lineLimit(3)
+                Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.95))
+                    .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func spotRow(_ spot: SkateSpot) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(spot.name)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            Text(spot.comment)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+            Text(spot.createdAt.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.95))
+                .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 2)
+        )
+    }
 }
 
 extension UserProfileView {
+    private func loadProfileContent() async {
+        await MainActor.run {
+            isLoadingProfile = true
+            profileLoadError = nil
+        }
+        
+        async let freshProfile = userService.getProfile(uid: profile.uid, source: .default)
+        async let spots = spotService.fetchSpots(createdBy: profile.uid)
+        async let communityPosts = try? communityService.fetchPosts(createdBy: profile.uid)
+        
+        do {
+            let resolvedProfile = try await freshProfile
+            let resolvedSpots = await spots
+            let resolvedPosts = await communityPosts ?? []
+            
+            await MainActor.run {
+                loadedProfile = resolvedProfile ?? profile
+                userSpots = resolvedSpots
+                userCommunityPosts = resolvedPosts
+                isLoadingProfile = false
+            }
+        } catch {
+            let resolvedSpots = await spots
+            let resolvedPosts = await communityPosts ?? []
+            await MainActor.run {
+                loadedProfile = profile
+                userSpots = resolvedSpots
+                userCommunityPosts = resolvedPosts
+                profileLoadError = error.localizedDescription
+                isLoadingProfile = false
+            }
+        }
+    }
+    
     private func sendFriendRequest() async {
         guard !isFriend, !hasPendingSent, !isSendingRequest else { return }
         await MainActor.run {
@@ -191,7 +336,7 @@ extension UserProfileView {
             requestError = nil
         }
         do {
-            try await userService.createFriendRequest(toUid: profile.uid)
+            try await userService.createFriendRequest(toUid: displayProfile.uid)
             await userService.loadPendingSent()
         } catch {
             await MainActor.run {

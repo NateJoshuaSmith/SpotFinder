@@ -101,7 +101,7 @@ struct HomeView: View {
                     }
                     
                     // Community button
-                    NavigationLink(destination: FriendsListView()) {
+                    NavigationLink(destination: CommunityForumView()) {
                         HStack(spacing: 12) {
                             Image(systemName: "person.3.fill")
                                 .font(.headline)
@@ -112,18 +112,19 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
-                            LinearGradient(
-                                colors: [.orange.opacity(0.9), .red.opacity(0.8)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                            ZStack {
+                                Image("Image")
+                                    .resizable()
+                                    .scaledToFill()
+                                Color.black.opacity(0.35)
+                            }
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(Color.black, lineWidth: 3)
                         )
                         .cornerRadius(16)
-                        .shadow(color: .orange.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
                     }
                     
                     // Favorites button

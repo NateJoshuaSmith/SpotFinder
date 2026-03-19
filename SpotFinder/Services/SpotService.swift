@@ -55,6 +55,20 @@ class SpotService: ObservableObject {
         }
     }
     
+    /// Fetch spots created by one user, newest first.
+    func fetchSpots(createdBy uid: String) async -> [SkateSpot] {
+        do {
+            let snapshot = try await db.collection(collectionName)
+                .whereField("createdBy", isEqualTo: uid)
+                .order(by: "createdAt", descending: true)
+                .getDocuments()
+            return snapshot.documents.compactMap { try? $0.data(as: SkateSpot.self) }
+        } catch {
+            print("Error fetching user spots: \(error)")
+            return []
+        }
+    }
+    
     // Add a new spot (imageURL optional; use uploadSpotImage first if user added a photo)
     func addSpot(
         name: String,
