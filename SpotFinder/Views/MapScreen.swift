@@ -400,7 +400,17 @@ struct MapScreen: View {
         .padding(6)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemBackground).opacity(0.95))
+                // Solid light blue bubble background (not transparent, but soft)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.86, green: 0.93, blue: 1.0),  // light blue
+                            Color(red: 0.91, green: 0.88, blue: 1.0)   // light bluish-purple
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(Color.black, lineWidth: 1.5)
@@ -411,8 +421,12 @@ struct MapScreen: View {
     // Toolbar content
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        // Friends and Skate shops as icon-only buttons next to the system back button
+        // Back button, Friends, and Skate shops on the leading side
         ToolbarItemGroup(placement: .navigationBarLeading) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "chevron.left")
+            }
+            
             NavigationLink(destination: FriendsListView()) {
                 Image(systemName: "person.2.fill")
             }

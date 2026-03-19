@@ -10,15 +10,29 @@
 		D885D4D92ED0332300683727 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = D885D4D82ED0332300683727 /* FirebaseAuth */; };
 		D885D4DB2ED0332300683727 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = D885D4DA2ED0332300683727 /* FirebaseCore */; };
 		D885D4DD2ED0332300683727 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = D885D4DC2ED0332300683727 /* FirebaseFirestore */; };
+		D885D4DF2ED0332300683727 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = D885D4DE2ED0332300683727 /* FirebaseStorage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		D885D4AA2ECF0C5800683727 /* SpotFinder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpotFinder.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D8E7D5E02F62133800D7477F /* Exceptions for "SpotFinder" folder in "SpotFinder" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D885D4A92ECF0C5800683727 /* SpotFinder */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D885D4AC2ECF0C5800683727 /* SpotFinder */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D8E7D5E02F62133800D7477F /* Exceptions for "SpotFinder" folder in "SpotFinder" target */,
+			);
 			path = SpotFinder;
 			sourceTree = "<group>";
 		};
@@ -32,6 +46,7 @@
 				D885D4DB2ED0332300683727 /* FirebaseCore in Frameworks */,
 				D885D4D92ED0332300683727 /* FirebaseAuth in Frameworks */,
 				D885D4DD2ED0332300683727 /* FirebaseFirestore in Frameworks */,
+				D885D4DF2ED0332300683727 /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +92,7 @@
 				D885D4D82ED0332300683727 /* FirebaseAuth */,
 				D885D4DA2ED0332300683727 /* FirebaseCore */,
 				D885D4DC2ED0332300683727 /* FirebaseFirestore */,
+				D885D4DE2ED0332300683727 /* FirebaseStorage */,
 			);
 			productName = SpotFinder;
 			productReference = D885D4AA2ECF0C5800683727 /* SpotFinder.app */;
@@ -268,12 +284,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpotFinder/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "SpotFinder needs your location to show nearby skate spots and help you discover new places to skate.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "SpotFinder needs your location to show nearby skate spots and help you discover new places to skate.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -300,12 +317,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpotFinder/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "SpotFinder needs your location to show nearby skate spots and help you discover new places to skate.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "SpotFinder needs your location to show nearby skate spots and help you discover new places to skate.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -372,6 +390,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D885D4D72ED0332300683727 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		D885D4DE2ED0332300683727 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D885D4D72ED0332300683727 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -133,82 +133,94 @@ struct SpotDetailView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                        VStack(spacing: 24) {
-                            // User-uploaded spot photos (or placeholder); owner can tap to add/change
-                            if !displayedImageURLs.isEmpty {
-                                let urls = displayedImageURLs
-                                ZStack(alignment: .bottomTrailing) {
-                                    TabView(selection: $selectedImageIndex) {
-                                        ForEach(Array(urls.enumerated()), id: \.offset) { index, urlString in
-                                            photoForURLString(urlString)
-                                                .tag(index)
-                                        }
+            ZStack {
+                // Light blue gradient background (same style as other sheets)
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // User-uploaded spot photos (or placeholder); owner can tap to add/change
+                        if !displayedImageURLs.isEmpty {
+                            let urls = displayedImageURLs
+                            ZStack(alignment: .bottomTrailing) {
+                                TabView(selection: $selectedImageIndex) {
+                                    ForEach(Array(urls.enumerated()), id: \.offset) { index, urlString in
+                                        photoForURLString(urlString)
+                                            .tag(index)
                                     }
-                                    .tabViewStyle(.page)
-                                    .frame(height: 200)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                                    .padding(.horizontal)
-                                    
-                                    if isOwner {
-                                        HStack {
-                                            Button(action: { showPhotoPickerSheet = true }) {
-                                                Image(systemName: "camera.circle.fill")
-                                                    .font(.title)
-                                                    .foregroundStyle(.white)
+                                }
+                                .tabViewStyle(.page)
+                                .frame(height: 200)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .padding(.horizontal)
+                                
+                                if isOwner {
+                                    HStack {
+                                        Button(action: { showPhotoPickerSheet = true }) {
+                                            Image(systemName: "camera.circle.fill")
+                                                .font(.title)
+                                                .foregroundStyle(.white)
+                                                .shadow(radius: 2)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(.trailing, 16)
+                                        .padding(.bottom, 16)
+                                        .disabled(isUploadingPhoto || isDeletingPhoto)
+                                        
+                                        if !displayedImageURLs.isEmpty {
+                                            Button(action: {
+                                                pendingDeleteImageIndex = selectedImageIndex
+                                                showDeletePhotoAlert = true
+                                            }) {
+                                                Image(systemName: "trash.circle.fill")
+                                                    .font(.title2)
+                                                    .foregroundStyle(.red)
                                                     .shadow(radius: 2)
                                             }
                                             .buttonStyle(.plain)
-                                            .padding(.trailing, 16)
+                                            .padding(.trailing, 24)
                                             .padding(.bottom, 16)
                                             .disabled(isUploadingPhoto || isDeletingPhoto)
-                                            
-                                            if !displayedImageURLs.isEmpty {
-                                                Button(action: {
-                                                    pendingDeleteImageIndex = selectedImageIndex
-                                                    showDeletePhotoAlert = true
-                                                }) {
-                                                    Image(systemName: "trash.circle.fill")
-                                                        .font(.title2)
-                                                        .foregroundStyle(.red)
-                                                        .shadow(radius: 2)
-                                                }
-                                                .buttonStyle(.plain)
-                                                .padding(.trailing, 24)
-                                                .padding(.bottom, 16)
-                                                .disabled(isUploadingPhoto || isDeletingPhoto)
-                                            }
                                         }
                                     }
                                 }
-                            } else {
-                                Group {
-                                    if isOwner {
-                                        Button(action: { showPhotoPickerSheet = true }) {
-                                            placeholderPhotoView
-                                                .overlay(isUploadingPhoto ? ProgressView() : nil)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .contentShape(Rectangle())
-                                        .disabled(isUploadingPhoto)
-                                        Button(action: { showPhotoPickerSheet = true }) {
-                                            Label("Add photo", systemImage: "photo.badge.plus")
-                                                .font(.headline)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, 12)
-                                                .background(Color(.systemGray5))
-                                                .cornerRadius(10)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .disabled(isUploadingPhoto)
-                                    } else {
-                                        placeholderPhotoView
-                                    }
-                                }
-                                .padding(.horizontal)
                             }
+                        } else {
+                            Group {
+                                if isOwner {
+                                    Button(action: { showPhotoPickerSheet = true }) {
+                                        placeholderPhotoView
+                                            .overlay(isUploadingPhoto ? ProgressView() : nil)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contentShape(Rectangle())
+                                    .disabled(isUploadingPhoto)
+                                    Button(action: { showPhotoPickerSheet = true }) {
+                                        Label("Add photo", systemImage: "photo.badge.plus")
+                                            .font(.headline)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 12)
+                                            .background(Color(.systemGray5))
+                                            .cornerRadius(10)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(isUploadingPhoto)
+                                } else {
+                                    placeholderPhotoView
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        
+                        // Spot Name Card (centered bubble)
+                        HStack {
+                            Spacer(minLength: 0)
                             
-                            // Spot Name Card
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(spot.name)
                                     .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -250,17 +262,23 @@ struct SpotDetailView: View {
                                     }
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: 360, alignment: .leading)
                             .padding(20)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                             )
-                            .padding(.horizontal)
-                            .padding(.top)
                             
-                            // Description Card
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top)
+                        
+                        // Description Card (centered bubble)
+                        HStack {
+                            Spacer(minLength: 0)
+                            
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Description", systemImage: "text.bubble.fill")
                                     .font(.headline)
@@ -272,16 +290,22 @@ struct SpotDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: 360, alignment: .leading)
                             .padding(20)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                             )
-                            .padding(.horizontal)
                             
-                            // Created Date & Creator Card
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Created Date & Creator Card (centered bubble)
+                        HStack {
+                            Spacer(minLength: 0)
+                            
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Added", systemImage: "calendar")
                                     .font(.headline)
@@ -292,26 +316,42 @@ struct SpotDetailView: View {
                                     .foregroundColor(.secondary)
                                 
                                 if let username = spot.createdByUsername, !username.isEmpty {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "person.fill")
-                                            .font(.caption)
-                                        Text("by @\(username)")
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
+                                    NavigationLink(
+                                        destination: UserProfileView(
+                                            profile: UserProfile(
+                                                uid: spot.createdBy,
+                                                username: username
+                                            )
+                                        )
+                                    ) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "person.fill")
+                                                .font(.caption)
+                                            Text("by @\(username)")
+                                                .font(.subheadline)
+                                                .foregroundColor(.blue)
+                                        }
                                     }
+                                    .buttonStyle(.plain)
                                     .padding(.top, 4)
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: 360, alignment: .leading)
                             .padding(20)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                             )
-                            .padding(.horizontal)
                             
-                            // Comments Section
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Comments Section (centered bubble)
+                        HStack {
+                            Spacer(minLength: 0)
+                            
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Comments", systemImage: "bubble.left.and.bubble.right.fill")
                                     .font(.headline)
@@ -364,17 +404,23 @@ struct SpotDetailView: View {
                                     )
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: 360, alignment: .leading)
                             .padding(20)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(Color(.systemBackground))
                                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                             )
-                            .padding(.horizontal)
                             
-                            // Delete Button (only show if user owns the spot)
-                            if isOwner {
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Delete Button (only show if user owns the spot) – centered bubble
+                        if isOwner {
+                            HStack {
+                                Spacer(minLength: 0)
+                                
                                 Button(action: {
                                     showDeleteAlert = true
                                 }) {
@@ -398,374 +444,378 @@ struct SpotDetailView: View {
                                             .shadow(color: .red.opacity(0.3), radius: 10, x: 0, y: 5)
                                     )
                                 }
+                                .frame(maxWidth: 360)
                                 .disabled(isDeleting)
-                                .padding(.horizontal)
+                                
+                                Spacer(minLength: 0)
                             }
-                            
-                            Spacer(minLength: 40)
+                            .padding(.horizontal)
                         }
-                        .padding(.vertical)
-            }
-            .navigationTitle("Spot Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if Auth.auth().currentUser != nil, let spotId = spot.id {
-                        Button(action: { Task { await toggleFavorite() } }) {
-                            if isTogglingFavorite {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: userService.isFavorite(spotId: spotId) ? "heart.fill" : "heart")
-                                    .foregroundColor(userService.isFavorite(spotId: spotId) ? .red : .secondary)
+                        
+                        Spacer(minLength: 40)
+                    }
+                    .padding(.vertical)
+                }
+                .navigationTitle("Spot Details")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        if Auth.auth().currentUser != nil, let spotId = spot.id {
+                            Button(action: { Task { await toggleFavorite() } }) {
+                                if isTogglingFavorite {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: userService.isFavorite(spotId: spotId) ? "heart.fill" : "heart")
+                                        .foregroundColor(userService.isFavorite(spotId: spotId) ? .red : .secondary)
+                                }
+                            }
+                            .disabled(isTogglingFavorite)
+                        }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack(spacing: 16) {
+                            Button(action: { showReportSheet = true }) {
+                                Image(systemName: "flag")
+                                    .foregroundColor(.secondary)
+                            }
+                            Button("Done") {
+                                dismiss()
                             }
                         }
-                        .disabled(isTogglingFavorite)
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: { showReportSheet = true }) {
-                            Image(systemName: "flag")
-                                .foregroundColor(.secondary)
+                .sheet(isPresented: $showReportSheet) {
+                    ReportSpotView(
+                        spot: spot,
+                        reportService: reportService,
+                        onDismiss: { showReportSheet = false }
+                    )
+                }
+                .alert("Delete Spot?", isPresented: $showDeleteAlert) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Delete", role: .destructive) {
+                        Task {
+                            await deleteSpot()
                         }
-                        Button("Done") {
-                            dismiss()
+                    }
+                } message: {
+                    Text("Are you sure you want to delete \"\(spot.name)\"? This action cannot be undone.")
+                }
+                .alert("Remove Photo?", isPresented: $showDeletePhotoAlert) {
+                    Button("Cancel", role: .cancel) {
+                        pendingDeleteImageIndex = nil
+                    }
+                    Button("Delete Photo", role: .destructive) {
+                        Task {
+                            await deleteCurrentPhoto()
                         }
                     }
+                } message: {
+                    Text("Are you sure you want to remove this photo from the spot?")
                 }
-            }
-            .sheet(isPresented: $showReportSheet) {
-                ReportSpotView(
-                    spot: spot,
-                    reportService: reportService,
-                    onDismiss: { showReportSheet = false }
-                )
-            }
-            .alert("Delete Spot?", isPresented: $showDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    Task {
-                        await deleteSpot()
+                .alert("Error", isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )) {
+                    Button("OK") {
+                        errorMessage = nil
+                    }
+                } message: {
+                    if let error = errorMessage {
+                        Text(error)
                     }
                 }
-            } message: {
-                Text("Are you sure you want to delete \"\(spot.name)\"? This action cannot be undone.")
-            }
-            .alert("Remove Photo?", isPresented: $showDeletePhotoAlert) {
-                Button("Cancel", role: .cancel) {
-                    pendingDeleteImageIndex = nil
-                }
-                Button("Delete Photo", role: .destructive) {
-                    Task {
-                        await deleteCurrentPhoto()
+                .onAppear {
+                    if let spotId = spot.id {
+                        commentService.listenToComments(spotId: spotId)
                     }
-                }
-            } message: {
-                Text("Are you sure you want to remove this photo from the spot?")
-            }
-            .alert("Error", isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )) {
-                Button("OK") {
-                    errorMessage = nil
-                }
-            } message: {
-                if let error = errorMessage {
-                    Text(error)
-                }
-            }
-            .onAppear {
-                if let spotId = spot.id {
-                    commentService.listenToComments(spotId: spotId)
-                }
-                localImageURL = nil
-                Task { await userService.loadFavorites() }
-            }
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                guard isOwner, let item = newItem else { return }
-                showPhotoPickerSheet = false
-                Task { await uploadSelectedPhoto(item) }
-            }
-            .sheet(isPresented: $showPhotoPickerSheet) {
-                photoPickerSheet
-            }
-            .onDisappear {
-                commentService.stopListening()
-            }
-        }
-    }
-    
-    private func postComment() async {
-        guard let spotId = spot.id else { return }
-        let text = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        
-        isPostingComment = true
-        defer { isPostingComment = false }
-        
-        do {
-            try await commentService.addComment(spotId: spotId, text: text)
-            newCommentText = ""
-        } catch {
-            errorMessage = "Failed to post comment: \(error.localizedDescription)"
-        }
-    }
-    
-    private func deleteSpot() async {
-        isDeleting = true
-        
-        do {
-            try await spotService.deleteSpot(spot)
-            dismiss()  // Close view after successful deletion
-        } catch {
-            errorMessage = "Failed to delete spot: \(error.localizedDescription)"
-            isDeleting = false
-        }
-    }
-    
-    private func deleteCurrentPhoto() async {
-        guard isOwner else { return }
-        let urls = displayedImageURLs
-        let index = pendingDeleteImageIndex ?? selectedImageIndex
-        guard index >= 0, index < urls.count else {
-            pendingDeleteImageIndex = nil
-            return
-        }
-        
-        let imageURLToDelete = urls[index]
-        
-        isDeletingPhoto = true
-        pendingDeleteImageIndex = nil
-        defer { isDeletingPhoto = false }
-        
-        do {
-            try await spotService.deleteSpotImage(spot: spot, imageURL: imageURLToDelete)
-            await MainActor.run {
-                var updated = urls
-                updated.removeAll { $0 == imageURLToDelete }
-                localImageURLsOverride = updated
-                if localImageURL == imageURLToDelete {
                     localImageURL = nil
+                    Task { await userService.loadFavorites() }
                 }
-                if selectedImageIndex >= updated.count {
-                    selectedImageIndex = max(0, updated.count - 1)
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    guard isOwner, let item = newItem else { return }
+                    showPhotoPickerSheet = false
+                    Task { await uploadSelectedPhoto(item) }
+                }
+                .sheet(isPresented: $showPhotoPickerSheet) {
+                    photoPickerSheet
+                }
+                .onDisappear {
+                    commentService.stopListening()
                 }
             }
-        } catch {
-            errorMessage = "Failed to delete photo: \(error.localizedDescription)"
+            }
         }
-    }
-    
-    private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
-        guard let spotId = spot.id else { return }
-        isUploadingPhoto = true
-        defer { isUploadingPhoto = false }
-        do {
-            guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
-                errorMessage = "Could not load photo."
+        
+        private func postComment() async {
+            guard let spotId = spot.id else { return }
+            let text = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return }
+            
+            isPostingComment = true
+            defer { isPostingComment = false }
+            
+            do {
+                try await commentService.addComment(spotId: spotId, text: text)
+                newCommentText = ""
+            } catch {
+                errorMessage = "Failed to post comment: \(error.localizedDescription)"
+            }
+        }
+        
+        private func deleteSpot() async {
+            isDeleting = true
+            
+            do {
+                try await spotService.deleteSpot(spot)
+                dismiss()  // Close view after successful deletion
+            } catch {
+                errorMessage = "Failed to delete spot: \(error.localizedDescription)"
+                isDeleting = false
+            }
+        }
+        
+        private func deleteCurrentPhoto() async {
+            guard isOwner else { return }
+            let urls = displayedImageURLs
+            let index = pendingDeleteImageIndex ?? selectedImageIndex
+            guard index >= 0, index < urls.count else {
+                pendingDeleteImageIndex = nil
                 return
             }
-            let urlString = try await spotService.uploadSpotImage(data: data)
-            try await spotService.updateSpotImage(spot: spot, imageURL: urlString)
-            await MainActor.run {
-                // Build up a local source of truth so new photos appear immediately
-                var updated = displayedImageURLs
-                if !updated.contains(urlString) {
-                    updated.append(urlString)
-                }
-                localImageURLsOverride = updated
-                localImageURL = nil
-                selectedPhotoItem = nil
-            }
-        } catch {
-            errorMessage = "Failed to add photo: \(error.localizedDescription)"
-        }
-    }
-    
-    private func toggleFavorite() async {
-        guard let spotId = spot.id else { return }
-        isTogglingFavorite = true
-        defer { isTogglingFavorite = false }
-        do {
-            if userService.isFavorite(spotId: spotId) {
-                try await userService.removeFavorite(spotId: spotId)
-            } else {
-                try await userService.addFavorite(spotId: spotId)
-            }
-        } catch {
-            errorMessage = "Failed to update favorite: \(error.localizedDescription)"
-        }
-    }
-}
-
-// MARK: - Comment Row
-private struct CommentRowView: View {
-    let comment: SpotComment
-    let spotId: String
-    @ObservedObject var commentService: CommentService
-    
-    private var currentUserId: String? {
-        Auth.auth().currentUser?.uid
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    if let username = comment.createdByUsername, !username.isEmpty {
-                        Text("@\(username)")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
-                    } else {
-                        Text("Anonymous")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+            
+            let imageURLToDelete = urls[index]
+            
+            isDeletingPhoto = true
+            pendingDeleteImageIndex = nil
+            defer { isDeletingPhoto = false }
+            
+            do {
+                try await spotService.deleteSpotImage(spot: spot, imageURL: imageURLToDelete)
+                await MainActor.run {
+                    var updated = urls
+                    updated.removeAll { $0 == imageURLToDelete }
+                    localImageURLsOverride = updated
+                    if localImageURL == imageURLToDelete {
+                        localImageURL = nil
                     }
-                    Text(comment.text)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if selectedImageIndex >= updated.count {
+                        selectedImageIndex = max(0, updated.count - 1)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                Spacer()
-                
-                // Like / Dislike buttons
-                HStack(spacing: 12) {
-                    Button(action: { Task { try? await commentService.toggleLike(spotId: spotId, comment: comment) } }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: comment.hasLiked(userId: currentUserId ?? "") ? "hand.thumbsup.fill" : "hand.thumbsup")
-                                .foregroundColor(comment.hasLiked(userId: currentUserId ?? "") ? .blue : .secondary)
-                            Text("\(comment.likeCount)")
-                                .font(.caption)
+            } catch {
+                errorMessage = "Failed to delete photo: \(error.localizedDescription)"
+            }
+        }
+        
+        private func uploadSelectedPhoto(_ item: PhotosPickerItem) async {
+            guard let spotId = spot.id else { return }
+            isUploadingPhoto = true
+            defer { isUploadingPhoto = false }
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
+                    errorMessage = "Could not load photo."
+                    return
+                }
+                let urlString = try await spotService.uploadSpotImage(data: data)
+                try await spotService.updateSpotImage(spot: spot, imageURL: urlString)
+                await MainActor.run {
+                    // Build up a local source of truth so new photos appear immediately
+                    var updated = displayedImageURLs
+                    if !updated.contains(urlString) {
+                        updated.append(urlString)
+                    }
+                    localImageURLsOverride = updated
+                    localImageURL = nil
+                    selectedPhotoItem = nil
+                }
+            } catch {
+                errorMessage = "Failed to add photo: \(error.localizedDescription)"
+            }
+        }
+        
+        private func toggleFavorite() async {
+            guard let spotId = spot.id else { return }
+            isTogglingFavorite = true
+            defer { isTogglingFavorite = false }
+            do {
+                if userService.isFavorite(spotId: spotId) {
+                    try await userService.removeFavorite(spotId: spotId)
+                } else {
+                    try await userService.addFavorite(spotId: spotId)
+                }
+            } catch {
+                errorMessage = "Failed to update favorite: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    // MARK: - Comment Row
+    private struct CommentRowView: View {
+        let comment: SpotComment
+        let spotId: String
+        @ObservedObject var commentService: CommentService
+        
+        private var currentUserId: String? {
+            Auth.auth().currentUser?.uid
+        }
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let username = comment.createdByUsername, !username.isEmpty {
+                            Text("@\(username)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                        } else {
+                            Text("Anonymous")
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
+                        Text(comment.text)
+                            .font(.body)
+                            .foregroundColor(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    Button(action: { Task { try? await commentService.toggleDislike(spotId: spotId, comment: comment) } }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: comment.hasDisliked(userId: currentUserId ?? "") ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                                .foregroundColor(comment.hasDisliked(userId: currentUserId ?? "") ? .red : .secondary)
-                            Text("\(comment.dislikeCount)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                    Spacer()
+                    
+                    // Like / Dislike buttons
+                    HStack(spacing: 12) {
+                        Button(action: { Task { try? await commentService.toggleLike(spotId: spotId, comment: comment) } }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: comment.hasLiked(userId: currentUserId ?? "") ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                    .foregroundColor(comment.hasLiked(userId: currentUserId ?? "") ? .blue : .secondary)
+                                Text("\(comment.likeCount)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: { Task { try? await commentService.toggleDislike(spotId: spotId, comment: comment) } }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: comment.hasDisliked(userId: currentUserId ?? "") ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                                    .foregroundColor(comment.hasDisliked(userId: currentUserId ?? "") ? .red : .secondary)
+                                Text("\(comment.dislikeCount)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                Text(comment.createdAt, style: .relative)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
-            Text(comment.createdAt, style: .relative)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            .padding(12)
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
         }
-        .padding(12)
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
     }
-}
-
-// MARK: - Report Spot
-struct ReportSpotView: View {
-    let spot: SkateSpot
-    @ObservedObject var reportService: ReportService
-    var onDismiss: () -> Void
     
-    @State private var selectedReasonId: String = ReportService.reportReasons[0].id
-    @State private var commentText: String = ""
-    @State private var isSubmitting = false
-    @State private var errorMessage: String?
-    @State private var showSuccess = false
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Picker("Reason", selection: $selectedReasonId) {
-                        ForEach(ReportService.reportReasons, id: \.id) { reason in
-                            Text(reason.label).tag(reason.id)
+    // MARK: - Report Spot
+    struct ReportSpotView: View {
+        let spot: SkateSpot
+        @ObservedObject var reportService: ReportService
+        var onDismiss: () -> Void
+        
+        @State private var selectedReasonId: String = ReportService.reportReasons[0].id
+        @State private var commentText: String = ""
+        @State private var isSubmitting = false
+        @State private var errorMessage: String?
+        @State private var showSuccess = false
+        @Environment(\.dismiss) var dismiss
+        
+        var body: some View {
+            NavigationStack {
+                Form {
+                    Section {
+                        Picker("Reason", selection: $selectedReasonId) {
+                            ForEach(ReportService.reportReasons, id: \.id) { reason in
+                                Text(reason.label).tag(reason.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    } header: {
+                        Text("Why are you reporting this spot?")
+                    }
+                    Section {
+                        TextField("Additional details (optional)", text: $commentText, axis: .vertical)
+                            .lineLimit(3...6)
+                    } header: {
+                        Text("Details")
+                    }
+                    if let error = errorMessage {
+                        Section {
+                            Text(error)
+                                .foregroundColor(.red)
+                                .font(.subheadline)
                         }
                     }
-                    .pickerStyle(.menu)
-                } header: {
-                    Text("Why are you reporting this spot?")
                 }
-                Section {
-                    TextField("Additional details (optional)", text: $commentText, axis: .vertical)
-                        .lineLimit(3...6)
-                } header: {
-                    Text("Details")
-                }
-                if let error = errorMessage {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.subheadline)
+                .navigationTitle("Report Spot")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                            onDismiss()
+                        }
+                        .disabled(isSubmitting)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Submit") {
+                            Task { await submitReport() }
+                        }
+                        .disabled(isSubmitting)
                     }
                 }
-            }
-            .navigationTitle("Report Spot")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                .alert("Report submitted", isPresented: $showSuccess) {
+                    Button("OK") {
                         dismiss()
                         onDismiss()
                     }
-                    .disabled(isSubmitting)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Submit") {
-                        Task { await submitReport() }
-                    }
-                    .disabled(isSubmitting)
+                } message: {
+                    Text("Thank you. We'll review this report.")
                 }
             }
-            .alert("Report submitted", isPresented: $showSuccess) {
-                Button("OK") {
-                    dismiss()
-                    onDismiss()
-                }
-            } message: {
-                Text("Thank you. We'll review this report.")
+        }
+        
+        private func submitReport() async {
+            guard let spotId = spot.id else { return }
+            isSubmitting = true
+            errorMessage = nil
+            defer { isSubmitting = false }
+            do {
+                try await reportService.submitReport(
+                    spotId: spotId,
+                    spotName: spot.name,
+                    reason: selectedReasonId,
+                    comment: commentText.isEmpty ? nil : commentText
+                )
+                showSuccess = true
+            } catch {
+                errorMessage = error.localizedDescription
             }
         }
     }
     
-    private func submitReport() async {
-        guard let spotId = spot.id else { return }
-        isSubmitting = true
-        errorMessage = nil
-        defer { isSubmitting = false }
-        do {
-            try await reportService.submitReport(
-                spotId: spotId,
-                spotName: spot.name,
-                reason: selectedReasonId,
-                comment: commentText.isEmpty ? nil : commentText
-            )
-            showSuccess = true
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+    #Preview {
+        SpotDetailView(
+            spot: SkateSpot(
+                name: "Test Spot",
+                latitude: 37.7749,
+                longitude: -122.4194,
+                comment: "This is a great spot for skateboarding!",
+                createdBy: "user123",
+                createdByUsername: "skater_pro"
+            ),
+            spotService: SpotService()
+        )
     }
-}
-
-#Preview {
-    SpotDetailView(
-        spot: SkateSpot(
-            name: "Test Spot",
-            latitude: 37.7749,
-            longitude: -122.4194,
-            comment: "This is a great spot for skateboarding!",
-            createdBy: "user123",
-            createdByUsername: "skater_pro"
-        ),
-        spotService: SpotService()
-    )
-}
-

@@ -100,13 +100,18 @@ struct FriendsListView: View {
                                         Spacer(minLength: 0)
                                         
                                         HStack(spacing: 12) {
-                                            // Only the avatar/name area is tappable for opening the conversation.
-                                            NavigationLink(destination: ConversationView(friendProfile: profile)) {
+                                            // Tapping the main card takes you to the user's profile page.
+                                            NavigationLink(destination: UserProfileView(profile: profile)) {
                                                 FriendRow(profile: profile, onRemove: nil)
                                             }
                                             .buttonStyle(.plain)
                                             
                                             Spacer(minLength: 0)
+                                            
+                                            // Small message bubble icon to indicate chatting is available
+                                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                                .foregroundColor(.blue)
+                                                .font(.subheadline)
                                             
                                             Button(role: .destructive) {
                                                 Task { await removeFriend(profile.uid) }

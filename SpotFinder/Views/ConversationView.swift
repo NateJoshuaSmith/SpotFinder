@@ -34,7 +34,9 @@ struct ConversationView: View {
                             ForEach(messages) { message in
                                 MessageBubble(
                                     message: message,
-                                    isFromCurrentUser: message.senderId == currentUserId
+                                    isFromCurrentUser: message.senderId == currentUserId,
+                                    friendUsername: friendProfile.username,
+                                    friendAvatarURL: friendProfile.avatarURL
                                 )
                             }
                         }
@@ -114,23 +116,76 @@ struct ConversationView: View {
 private struct MessageBubble: View {
     let message: Message
     let isFromCurrentUser: Bool
+    let friendUsername: String
+    let friendAvatarURL: String?
     
     var body: some View {
-        HStack(alignment: .bottom) {
-            if isFromCurrentUser { Spacer(minLength: 60) }
-            Text(message.text)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(isFromCurrentUser ? Color.blue : Color(.systemGray5))
-                .foregroundColor(isFromCurrentUser ? .white : .primary)
-                .cornerRadius(16)
-            if !isFromCurrentUser { Spacer(minLength: 60) }
+        // Display name for this bubble
+        let displayName = isFromCurrentUser ? "You" : friendUsername
+        let initial = String(displayName.prefix(1)).uppercased()
+        
+        HStack(alignment: .top, spacing: 8) {
+            // Avatar always on the left
+            if !isFromCurrentUser, let urlString = friendAvatarURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        Circle()
+                            .fill(Color(.systemGray5))
+                            .overlay(
+                                Text(initial)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundColor(.black)
+                            )
+                    }
+                }
+                .frame(width: 28, height: 28)
+                .clipShape(Circle())
+            } else {
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Text(initial)
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.black)
+                    )
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                // Bold, black username label on the left, like "username:"
+                Text("\(displayName):")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                
+                HStack {
+                    if isFromCurrentUser {
+                        Spacer(minLength: 40)
+                    }
+                    
+                    Text(message.text)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(isFromCurrentUser ? Color.blue : Color(.systemGray5))
+                        .foregroundColor(isFromCurrentUser ? .white : .primary)
+                        .cornerRadius(16)
+                    
+                    if !isFromCurrentUser {
+                        Spacer(minLength: 40)
+                    }
+                }
+            }
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        ConversationView(friendProfile: UserProfile(uid: "preview", username: "friend", email: nil))
+        ConversationView(friendProfile: UserProfile(uid: "preview", username: "friend", email: nil, avatarURL: nil))
     }
 }

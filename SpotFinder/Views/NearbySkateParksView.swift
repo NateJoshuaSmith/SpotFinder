@@ -39,16 +39,13 @@ struct NearbySkateParksView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Same background as login: gradient + dark overlay
+                // Light blue gradient background (no dark overlay)
                 LinearGradient(
                     colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
-                
-                Color.black.opacity(0.45)
-                    .ignoresSafeArea()
                 
                 VStack(spacing: 16) {
                     Picker("Nearby type", selection: $selectedTab) {
@@ -128,7 +125,10 @@ struct NearbySkateParksView: View {
                         .foregroundColor(.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color(.systemGray5)))
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.95)) // brighter bubble
+                        )
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
