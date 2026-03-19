@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseAuth
 import PhotosUI
+import MapKit
 
 struct SpotDetailView: View {
     let spot: SkateSpot
@@ -314,6 +315,22 @@ struct SpotDetailView: View {
                                 Text(spot.createdAt, style: .date)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
+
+                                // Directions button to open Apple Maps
+                                Button {
+                                    openInMapsDirections()
+                                } label: {
+                                    Label("Directions", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            Capsule().fill(Color.blue.opacity(0.12))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.top, 4)
                                 
                                 if let username = spot.createdByUsername, !username.isEmpty {
                                     NavigationLink(
@@ -633,6 +650,16 @@ struct SpotDetailView: View {
             } catch {
                 errorMessage = "Failed to add photo: \(error.localizedDescription)"
             }
+        }
+        
+        private func openInMapsDirections() {
+            let coordinate = CLLocationCoordinate2D(latitude: spot.latitude, longitude: spot.longitude)
+            let placemark = MKPlacemark(coordinate: coordinate)
+            let mapItem = MKMapItem(placemark: placemark)
+            mapItem.name = spot.name
+            mapItem.openInMaps(launchOptions: [
+                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+            ])
         }
         
         private func toggleFavorite() async {
