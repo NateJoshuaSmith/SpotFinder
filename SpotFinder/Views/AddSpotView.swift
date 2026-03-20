@@ -32,153 +32,185 @@ struct AddSpotView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Spot photo (optional)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Spot Photo")
-                            .font(.headline)
-                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                            Group {
-                                if let data = selectedImageData, let uiImage = UIImage(data: data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(height: 160)
-                                        .frame(maxWidth: .infinity)
-                                        .clipped()
-                                } else {
-                                    Rectangle()
-                                        .fill(Color(.systemGray5))
-                                        .frame(height: 160)
-                                        .overlay(
-                                            VStack(spacing: 8) {
-                                                Image(systemName: "photo.badge.plus")
-                                                    .font(.system(size: 36))
-                                                    .foregroundColor(.secondary)
-                                                Text("Add a photo of the spot")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                        )
-                                }
-                            }
-                            .cornerRadius(12)
-                        }
-                        .onChange(of: selectedPhotoItem) { _, newItem in
-                            Task {
-                                if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                                    selectedImageData = data
-                                } else {
-                                    selectedImageData = nil
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Spot Name
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Spot Information")
-                            .font(.headline)
-                        TextField("Spot Name", text: $spotName)
-                            .textFieldStyle(.plain)
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(10)
-                    }
-                    
-                    // Description - TextField expands as you type, outer ScrollView handles all scrolling (no gesture conflict)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Description")
-                            .font(.headline)
-                        TextField("Add a comment about this spot...", text: $spotComment, axis: .vertical)
-                            .lineLimit(5...30)
-                            .textFieldStyle(.plain)
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(10)
-                    }
-                    
-                    // Tags
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Tags")
-                            .font(.headline)
-                        WrapTagsView(
-                            allTags: allTags,
-                            selectedTags: $selectedTags
-                        )
-                    }
-                    
-                    // Difficulty
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Difficulty")
-                            .font(.headline)
-                        Picker("Difficulty", selection: $selectedDifficulty) {
-                            ForEach(allDifficulties, id: \.self) { level in
-                                Text(level).tag(level)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    
-                    // Skateable status
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Skateable status")
-                            .font(.headline)
-                        Picker("Status", selection: $selectedStatus) {
-                            ForEach(allStatuses, id: \.self) { s in
-                                Text(s).tag(s)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    
-                    // Save Button
-                    Button(action: {
-                        Task {
-                            await saveSpot()
-                        }
-                    }) {
-                        HStack {
-                            Spacer()
-                            if isSaving {
-                                ProgressView()
-                                    .tint(.white)
-                            } else {
-                                Image(systemName: "checkmark.circle.fill")
+            ZStack {
+                // Light blue gradient (same as skate shops / skate parks sheets)
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Spot photo (optional)
+                        bubbleCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Spot Photo")
                                     .font(.headline)
+                                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                                    Group {
+                                        if let data = selectedImageData, let uiImage = UIImage(data: data) {
+                                            Image(uiImage: uiImage)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(height: 160)
+                                                .frame(maxWidth: .infinity)
+                                                .clipped()
+                                        } else {
+                                            Rectangle()
+                                                .fill(Color(.systemGray5))
+                                                .frame(height: 160)
+                                                .overlay(
+                                                    VStack(spacing: 8) {
+                                                        Image(systemName: "photo.badge.plus")
+                                                            .font(.system(size: 36))
+                                                            .foregroundColor(.secondary)
+                                                        Text("Add a photo of the spot")
+                                                            .font(.subheadline)
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                )
+                                        }
+                                    }
+                                    .cornerRadius(12)
+                                }
+                                .onChange(of: selectedPhotoItem) { _, newItem in
+                                    Task {
+                                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                            selectedImageData = data
+                                        } else {
+                                            selectedImageData = nil
+                                        }
+                                    }
+                                }
                             }
-                            Text(isSaving ? "Saving..." : "Save Spot")
-                                .fontWeight(.semibold)
-                            Spacer()
                         }
-                        .foregroundColor(.white)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(
-                                    spotName.isEmpty || isSaving
-                                        ? LinearGradient(
-                                            colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.3)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                        : LinearGradient(
-                                            colors: [.blue, .purple],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
+                        
+                        bubbleCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Spot Information")
+                                    .font(.headline)
+                                TextField("Spot Name", text: $spotName)
+                                    .textFieldStyle(.plain)
+                                    .padding(12)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(10)
+                            }
+                        }
+                        
+                        bubbleCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Description")
+                                    .font(.headline)
+                                TextField("Add a comment about this spot...", text: $spotComment, axis: .vertical)
+                                    .lineLimit(5...30)
+                                    .textFieldStyle(.plain)
+                                    .padding(12)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(10)
+                            }
+                        }
+                        
+                        bubbleCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Tags")
+                                    .font(.headline)
+                                WrapTagsView(
+                                    allTags: allTags,
+                                    selectedTags: $selectedTags
+                                )
+                            }
+                        }
+                        
+                        bubbleCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Difficulty")
+                                    .font(.headline)
+                                Picker("Difficulty", selection: $selectedDifficulty) {
+                                    ForEach(allDifficulties, id: \.self) { level in
+                                        Text(level).tag(level)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                            }
+                        }
+                        
+                        bubbleCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Skateable status")
+                                    .font(.headline)
+                                Picker("Status", selection: $selectedStatus) {
+                                    ForEach(allStatuses, id: \.self) { s in
+                                        Text(s).tag(s)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                            }
+                        }
+                        
+                        bubbleCard {
+                            Button(action: {
+                                Task {
+                                    await saveSpot()
+                                }
+                            }) {
+                                HStack {
+                                    Spacer()
+                                    if isSaving {
+                                        ProgressView()
+                                            .tint(.white)
+                                    } else {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.headline)
+                                    }
+                                    Text(isSaving ? "Saving..." : "Save Spot")
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .foregroundColor(.white)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(
+                                            spotName.isEmpty || isSaving
+                                                ? LinearGradient(
+                                                    colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.3)],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                                : LinearGradient(
+                                                    colors: [.blue, .purple],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
                                         )
                                 )
-                        )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(spotName.isEmpty || isSaving)
+                        }
                     }
-                    .disabled(spotName.isEmpty || isSaving)
+                    .padding(.horizontal)
+                    .padding(.vertical, 16)
                 }
-                .padding(20)
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("New Spot")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("New Spot")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.95))
+                        )
+                }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
@@ -186,6 +218,23 @@ struct AddSpotView: View {
                     .foregroundColor(.blue)
                 }
             }
+        }
+    }
+    
+    /// Centered bubble card matching skate shops / friends list style
+    @ViewBuilder
+    private func bubbleCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Spacer(minLength: 0)
+            content()
+                .frame(maxWidth: 360, alignment: .leading)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.95))
+                        .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                )
+            Spacer(minLength: 0)
         }
     }
     

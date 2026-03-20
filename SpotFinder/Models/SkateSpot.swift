@@ -57,5 +57,18 @@ struct SkateSpot: Identifiable, Codable, Equatable {
         self.difficulty = difficulty
         self.status = status
     }
+    
+    /// First photo URL for map/list previews (prefers `imageURLs`, then legacy `imageURL`).
+    var primaryImageURLString: String? {
+        if let urls = imageURLs {
+            if let first = urls.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                return first
+            }
+        }
+        if let u = imageURL, !u.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return u
+        }
+        return nil
+    }
 }
 

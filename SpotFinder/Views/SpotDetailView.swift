@@ -34,6 +34,10 @@ struct SpotDetailView: View {
     @State private var showPhotoPickerSheet = false
     @State private var selectedImageIndex: Int = 0
     @State private var pendingDeleteImageIndex: Int?
+    @State private var averageRating: Double = 0
+    @State private var ratingCount: Int = 0
+    @State private var userRating: Int = 0
+    @State private var isSubmittingRating = false
     
     // Check if current user owns this spot
     private var isOwner: Bool {
@@ -308,6 +312,62 @@ struct SpotDetailView: View {
                             Spacer(minLength: 0)
                             
                             VStack(alignment: .leading, spacing: 12) {
+                                Label("Spot Rating", systemImage: "star.bubble.fill")
+                                    .font(.headline)
+                                    .foregroundColor(.blue)
+                                
+                                HStack(spacing: 8) {
+                                    Text(ratingCount > 0 ? String(format: "%.1f", averageRating) : "No ratings yet")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundColor(.primary)
+                                    if ratingCount > 0 {
+                                        Text("(\(ratingCount))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    ForEach(1...5, id: \.self) { star in
+                                        Button {
+                                            Task { await submitRating(star) }
+                                        } label: {
+                                            Image(systemName: star <= userRating ? "star.fill" : "star")
+                                                .font(.title3)
+                                                .foregroundColor(.yellow)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(isSubmittingRating || Auth.auth().currentUser == nil)
+                                    }
+                                }
+                                
+                                if Auth.auth().currentUser == nil {
+                                    Text("Sign in to rate this spot.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                } else if userRating > 0 {
+                                    Text("Your rating: \(userRating) / 5")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: 360, alignment: .leading)
+                            .padding(20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            )
+                            
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Created Date & Creator Card (centered bubble)
+                        HStack {
+                            Spacer(minLength: 0)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
                                 Label("Added", systemImage: "calendar")
                                     .font(.headline)
                                     .foregroundColor(.blue)
@@ -546,6 +606,7 @@ struct SpotDetailView: View {
                 .onAppear {
                     if let spotId = spot.id {
                         commentService.listenToComments(spotId: spotId)
+                        Task { await loadRatingSummary(spotId: spotId) }
                     }
                     localImageURL = nil
                     Task { await userService.loadFavorites() }
@@ -674,6 +735,33 @@ struct SpotDetailView: View {
                 }
             } catch {
                 errorMessage = "Failed to update favorite: \(error.localizedDescription)"
+            }
+        }
+    
+        private func loadRatingSummary(spotId: String) async {
+            do {
+                let summary = try await spotService.fetchRatingSummary(spotId: spotId)
+                await MainActor.run {
+                    averageRating = summary.average
+                    ratingCount = summary.count
+                    userRating = summary.userRating ?? 0
+                }
+            } catch {
+                // keep UI usable; rating can silently fail if rules are missing
+                print("Failed to load rating summary: \(error)")
+            }
+        }
+    
+        private func submitRating(_ rating: Int) async {
+            guard let spotId = spot.id, Auth.auth().currentUser != nil else { return }
+            isSubmittingRating = true
+            defer { isSubmittingRating = false }
+            do {
+                try await spotService.submitRating(spotId: spotId, rating: rating)
+                userRating = rating
+                await loadRatingSummary(spotId: spotId)
+            } catch {
+                errorMessage = "Failed to submit rating: \(error.localizedDescription)"
             }
         }
     }

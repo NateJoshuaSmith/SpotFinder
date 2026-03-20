@@ -19,6 +19,12 @@ class SpotService: ObservableObject {
     
     @Published var spots: [SkateSpot] = []
     
+    struct SpotRatingSummary {
+        let average: Double
+        let count: Int
+        let userRating: Int?
+    }
+    
     /// Fetch spots by document IDs (e.g. for favorites list). Firestore "in" is limited to 10, so we chunk.
     func fetchSpots(ids: [String]) async -> [SkateSpot] {
         let uniqueIds = Array(Set(ids)).filter { !$0.isEmpty }
@@ -227,6 +233,49 @@ class SpotService: ObservableObject {
                     try? document.data(as: SkateSpot.self)
                 }
             }
+    }
+    
+    /// Save or update the current user's rating for a spot (1...5 stars).
+    func submitRating(spotId: String, rating: Int) async throws {
+        guard let uid = authService.currentUserId else {
+            throw NSError(domain: "SpotService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        let normalized = min(max(rating, 1), 5)
+        try await db.collection(collectionName)
+            .document(spotId)
+            .collection("ratings")
+            .document(uid)
+            .setData([
+                "userId": uid,
+                "rating": normalized,
+                "updatedAt": Timestamp(date: Date())
+            ], merge: true)
+    }
+    
+    /// Fetch aggregate rating + current user's rating for one spot.
+    func fetchRatingSummary(spotId: String) async throws -> SpotRatingSummary {
+        let snapshot = try await db.collection(collectionName)
+            .document(spotId)
+            .collection("ratings")
+            .getDocuments()
+        
+        var sum = 0
+        var count = 0
+        var myRating: Int?
+        let currentUid = authService.currentUserId
+        
+        for doc in snapshot.documents {
+            let rating = doc.data()["rating"] as? Int ?? 0
+            guard rating >= 1, rating <= 5 else { continue }
+            sum += rating
+            count += 1
+            if let currentUid, doc.documentID == currentUid {
+                myRating = rating
+            }
+        }
+        
+        let avg = count > 0 ? Double(sum) / Double(count) : 0
+        return SpotRatingSummary(average: avg, count: count, userRating: myRating)
     }
 }
 
