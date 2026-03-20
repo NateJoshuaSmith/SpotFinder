@@ -1,4 +1,4 @@
-# SpotFinder 🛹
+# SpotFinder 
 
 A skate spot finder iOS app built with SwiftUI and Firebase.
 
