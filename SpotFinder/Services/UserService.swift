@@ -10,6 +10,42 @@ import FirebaseFirestore
 import FirebaseStorage
 import Combine
 
+// MARK: - Friends list UI cache (in-memory for the app session)
+
+/// Snapshot of resolved friends + pending rows for instant list display on repeat visits.
+struct FriendsListDisplayCache: Sendable {
+    let userId: String
+    let friends: [UserProfile]
+    let pendingSentProfiles: [UserProfile]
+    let pendingReceived: [(FriendRequest, UserProfile)]
+    let loadedAt: Date
+}
+
+extension UserService {
+    private static let friendsListCacheLock = NSLock()
+    private static var friendsListDisplayCache: FriendsListDisplayCache?
+    
+    /// Last cached friends UI for this user (same session). Cleared on logout.
+    static func friendsListDisplayCache(forUserId uid: String) -> FriendsListDisplayCache? {
+        friendsListCacheLock.lock()
+        defer { friendsListCacheLock.unlock() }
+        guard let c = friendsListDisplayCache, c.userId == uid else { return nil }
+        return c
+    }
+    
+    static func storeFriendsListDisplayCache(_ cache: FriendsListDisplayCache) {
+        friendsListCacheLock.lock()
+        defer { friendsListCacheLock.unlock() }
+        friendsListDisplayCache = cache
+    }
+    
+    static func clearFriendsListDisplayCache() {
+        friendsListCacheLock.lock()
+        defer { friendsListCacheLock.unlock() }
+        friendsListDisplayCache = nil
+    }
+}
+
 class UserService: ObservableObject {
     private let authService = AuthService()
     private let db = Firestore.firestore()
@@ -39,6 +75,37 @@ class UserService: ObservableObject {
         let document = try await db.collection(collectionName).document(uid).getDocument(source: source)
         guard document.exists else { return nil }
         return try document.data(as: UserProfile.self)
+    }
+    
+    /// Batch-fetch profiles by UID (Firestore `in` queries are capped at 10 IDs per query).
+    /// Preserves order of `orderedUids` in the returned array (skips missing docs).
+    func fetchProfiles(forUids orderedUids: [String]) async throws -> [UserProfile] {
+        let unique = Array(Set(orderedUids)).filter { !$0.isEmpty }
+        guard !unique.isEmpty else { return [] }
+        let chunkSize = 10
+        var idToProfile: [String: UserProfile] = [:]
+        try await withThrowingTaskGroup(of: [UserProfile].self) { group in
+            var start = 0
+            while start < unique.count {
+                let end = min(start + chunkSize, unique.count)
+                let chunk = Array(unique[start..<end])
+                group.addTask {
+                    let snapshot = try await self.db.collection(self.collectionName)
+                        .whereField(FieldPath.documentID(), in: chunk)
+                        .getDocuments()
+                    return snapshot.documents.compactMap { doc in
+                        try? doc.data(as: UserProfile.self)
+                    }
+                }
+                start = end
+            }
+            for try await batch in group {
+                for profile in batch {
+                    idToProfile[profile.uid] = profile
+                }
+            }
+        }
+        return orderedUids.compactMap { idToProfile[$0] }
     }
     
     /// Get current user's username (convenience method). Uses server fetch to avoid stale cache.

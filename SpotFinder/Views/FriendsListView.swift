@@ -206,8 +206,8 @@ struct FriendsListView: View {
                 }
             }
         }
-        .task {
-            await loadFriends()
+        .task(id: Auth.auth().currentUser?.uid) {
+            await loadFriendsWithCache()
         }
         .sheet(isPresented: $showAddFriend) {
             AddFriendView(userService: userService) {
@@ -217,80 +217,84 @@ struct FriendsListView: View {
         }
     }
     
-    /// Full load from Firestore: friends, pending sent, pending received.
-    private func loadFriends() async {
-        guard isLoggedIn else {
-            isLoading = false
+    /// Show cached list immediately (if any), then refresh from Firestore in the background.
+    private func loadFriendsWithCache() async {
+        guard isLoggedIn, let uid = Auth.auth().currentUser?.uid else {
+            await MainActor.run { isLoading = false }
             return
         }
-        print("[FriendsListView] loadFriends starting")
-        isLoading = true
+        if let cached = UserService.friendsListDisplayCache(forUserId: uid) {
+            await MainActor.run {
+                friends = cached.friends
+                pendingSentProfiles = cached.pendingSentProfiles
+                pendingReceived = cached.pendingReceived
+                isLoading = false
+            }
+            await loadFriendsFromServer(showBlockingSpinner: false)
+        } else {
+            await MainActor.run { isLoading = true }
+            await loadFriendsFromServer(showBlockingSpinner: true)
+        }
+    }
+    
+    /// Full load from Firestore: friend IDs, pending IDs, then batch profile reads (not N sequential gets).
+    private func loadFriendsFromServer(showBlockingSpinner: Bool) async {
+        guard isLoggedIn, let uid = Auth.auth().currentUser?.uid else {
+            await MainActor.run { isLoading = false }
+            return
+        }
+        if showBlockingSpinner {
+            await MainActor.run { isLoading = true }
+        }
+        print("[FriendsListView] loadFriendsFromServer starting")
+        
         await userService.loadFriends()
         await userService.loadPendingSent()
         await userService.processAcceptedRequests()
-        await refreshFriendsFromCurrentIds()
-        await refreshPendingSentProfiles()
-        await loadPendingReceived()
-        await MainActor.run { isLoading = false }
-        print("[FriendsListView] loadFriends finished. friends=\(friends.count), pendingSent=\(pendingSentProfiles.count), pendingReceived=\(pendingReceived.count)")
+        
+        let friendProfiles = (try? await userService.fetchProfiles(forUids: userService.friendIds)) ?? []
+        let pendingProfiles = (try? await userService.fetchProfiles(forUids: userService.pendingSentIds)) ?? []
+        
+        let requests = (try? await userService.loadPendingReceived()) ?? []
+        let fromUids = requests.map(\.fromUid)
+        let senderProfiles = (try? await userService.fetchProfiles(forUids: fromUids)) ?? []
+        let profileById = Dictionary(uniqueKeysWithValues: senderProfiles.map { ($0.uid, $0) })
+        let receivedPairs: [(FriendRequest, UserProfile)] = requests.compactMap { request in
+            guard let profile = profileById[request.fromUid] else {
+                print("[FriendsListView] loadPendingReceived: missing profile for fromUid=\(request.fromUid)")
+                return nil
+            }
+            return (request, profile)
+        }
+        
+        let cache = FriendsListDisplayCache(
+            userId: uid,
+            friends: friendProfiles,
+            pendingSentProfiles: pendingProfiles,
+            pendingReceived: receivedPairs,
+            loadedAt: Date()
+        )
+        UserService.storeFriendsListDisplayCache(cache)
+        
+        await MainActor.run {
+            friends = friendProfiles
+            pendingSentProfiles = pendingProfiles
+            pendingReceived = receivedPairs
+            isLoading = false
+        }
+        print("[FriendsListView] loadFriendsFromServer finished. friends=\(friends.count), pendingSent=\(pendingSentProfiles.count), pendingReceived=\(pendingReceived.count)")
     }
     
-    /// Refresh friends and pending lists from current in-memory state (e.g. after adding a friend).
+    /// Refresh friends and pending lists from Firestore (e.g. after adding a friend).
     private func refreshAll() async {
         guard isLoggedIn else { return }
-        await userService.loadPendingSent()
-        await refreshFriendsFromCurrentIds()
-        await refreshPendingSentProfiles()
-        await loadPendingReceived()
-    }
-    
-    private func refreshFriendsFromCurrentIds() async {
-        guard isLoggedIn else { return }
-        let ids = userService.friendIds
-        var loaded: [UserProfile] = []
-        for id in ids {
-            if let profile = try? await userService.getProfile(uid: id) {
-                loaded.append(profile)
-            }
-        }
-        await MainActor.run { friends = loaded }
-    }
-    
-    private func refreshPendingSentProfiles() async {
-        let ids = userService.pendingSentIds
-        var loaded: [UserProfile] = []
-        for id in ids {
-            if let profile = try? await userService.getProfile(uid: id) {
-                loaded.append(profile)
-            }
-        }
-        await MainActor.run { pendingSentProfiles = loaded }
-    }
-    
-    private func loadPendingReceived() async {
-        print("[FriendsListView] loadPendingReceived called")
-        guard let requests = try? await userService.loadPendingReceived() else {
-            print("[FriendsListView] loadPendingReceived: userService.loadPendingReceived failed or no requests")
-            await MainActor.run { pendingReceived = [] }
-            return
-        }
-        print("[FriendsListView] loadPendingReceived: got \(requests.count) FriendRequest objects")
-        var result: [(FriendRequest, UserProfile)] = []
-        for request in requests {
-            if let profile = try? await userService.getProfile(uid: request.fromUid) {
-                result.append((request, profile))
-            } else {
-                print("[FriendsListView] loadPendingReceived: failed to load profile for fromUid=\(request.fromUid)")
-            }
-        }
-        print("[FriendsListView] loadPendingReceived: resolved \(result.count) profiles")
-        await MainActor.run { pendingReceived = result }
+        await loadFriendsFromServer(showBlockingSpinner: false)
     }
     
     private func removeFriend(_ uid: String) async {
         do {
             try await userService.removeFriend(friendUid: uid)
-            await MainActor.run { friends.removeAll { $0.uid == uid } }
+            await refreshAll()
         } catch {
             print("Error removing friend: \(error)")
         }
@@ -299,7 +303,7 @@ struct FriendsListView: View {
     private func cancelRequest(_ toUid: String) async {
         do {
             try await userService.cancelFriendRequest(toUid: toUid)
-            await MainActor.run { pendingSentProfiles.removeAll { $0.uid == toUid } }
+            await refreshAll()
         } catch {
             print("Error canceling request: \(error)")
         }
@@ -308,8 +312,7 @@ struct FriendsListView: View {
     private func acceptRequest(_ fromUid: String) async {
         do {
             try await userService.acceptFriendRequest(fromUid: fromUid)
-            await MainActor.run { pendingReceived.removeAll { $0.0.fromUid == fromUid } }
-            await refreshFriendsFromCurrentIds()
+            await refreshAll()
         } catch {
             print("Error accepting request: \(error)")
         }
@@ -318,7 +321,7 @@ struct FriendsListView: View {
     private func declineRequest(_ fromUid: String) async {
         do {
             try await userService.declineFriendRequest(fromUid: fromUid)
-            await MainActor.run { pendingReceived.removeAll { $0.0.fromUid == fromUid } }
+            await refreshAll()
         } catch {
             print("Error declining request: \(error)")
         }

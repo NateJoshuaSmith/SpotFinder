@@ -62,6 +62,7 @@ class LoginViewModel: ObservableObject {
     func logout() async {
         do {
             try authService.signOut()
+            UserService.clearFriendsListDisplayCache()
             print("Logout successful!")
             isLoggedIn = false
             avatarURL = nil

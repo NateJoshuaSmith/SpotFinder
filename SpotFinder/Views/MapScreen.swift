@@ -89,13 +89,8 @@ struct MapScreen: View {
         }
     }
     
-    /// Same skate-style assets used elsewhere (e.g. home / parks): park-tagged spots use the outdoor park art.
-    private func pinAssetName(for spot: SkateSpot) -> String {
-        let tags = spot.tags ?? []
-        if tags.contains(where: { $0.caseInsensitiveCompare("Park") == .orderedSame }) {
-            return "OutdoorPark"
-        }
-        return "GrassRamp"
+    private func pinAssetName(for _: SkateSpot) -> String {
+        "SkateboardIcon"
     }
 
     // Loading indicator view
@@ -245,15 +240,15 @@ struct MapScreen: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44)
                     .shadow(color: .black.opacity(0.2), radius: selected ? 6 : 3, x: 0, y: 2)
                 Circle()
                     .stroke(ring, lineWidth: 3)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44)
                 Image(asset)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 28, height: 28)
+                    .frame(width: 34, height: 34)
             }
             .scaleEffect(
                 draggingSpot?.id == spot.id
